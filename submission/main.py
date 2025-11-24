@@ -224,6 +224,48 @@ def detect_threats(board: List[int], mark: int) -> List[Tuple[int, int, str]]:
     return threats
 
 
+def count_immediate_wins(board: List[int], mark: int) -> List[int]:
+    """Return list of columns that win immediately for the given mark."""
+
+    winning_cols = []
+    for col in get_valid_moves(board):
+        next_board = make_move(board, col, mark)
+        if check_winner(next_board, mark):
+            winning_cols.append(col)
+    return winning_cols
+
+
+def find_two_threat_blocking_move(board: List[int], mark: int) -> Optional[int]:
+    """Block opponent moves that create two immediate winning threats."""
+
+    opponent_mark = 3 - mark
+    valid_moves = get_valid_moves(board)
+
+    for col in valid_moves:
+        # If opponent plays here and creates two winning options, occupy it now
+        opponent_board = make_move(board, col, opponent_mark)
+        winning_cols = count_immediate_wins(opponent_board, opponent_mark)
+        if len(winning_cols) >= 2:
+            return col
+
+    return None
+
+
+def find_safe_moves(board: List[int], mark: int) -> List[int]:
+    """Find moves that do not allow an immediate opponent win next turn."""
+
+    opponent_mark = 3 - mark
+    safe_moves = []
+
+    for col in get_valid_moves(board):
+        next_board = make_move(board, col, mark)
+        opponent_wins = count_immediate_wins(next_board, opponent_mark)
+        if not opponent_wins:
+            safe_moves.append(col)
+
+    return safe_moves
+
+
 def find_threat_blocking_move(board: List[int], mark: int) -> Optional[int]:
     """Find move to block opponent's 3-in-a-row threats"""
     opponent_mark = 3 - mark
@@ -325,9 +367,11 @@ class HybridAgent:
         Priority:
         1. Take winning move
         2. Block opponent's win
-        3. Block opponent's 3-in-a-row threat
-        4. Use DQN Q-values with optional exploration
-        5. Fallback to center preference
+        3. Block opponent's two-threat traps
+        4. Block opponent's 3-in-a-row threat
+        5. Prefer safe one-ply moves before policy
+        6. Use DQN Q-values with optional exploration
+        7. Fallback to center preference
         """
         valid_moves = get_valid_moves(board)
 
@@ -347,12 +391,20 @@ class HybridAgent:
         if blocking_move is not None:
             return blocking_move
 
-        # Rule 3: Block opponent's 3-in-a-row threat
+        # Rule 3: Block opponent's two-threat traps (forks)
+        fork_block = find_two_threat_blocking_move(board, mark)
+        if fork_block is not None:
+            return fork_block
+
+        # Rule 4: Block opponent's 3-in-a-row threat
         threat_block = find_threat_blocking_move(board, mark)
         if threat_block is not None:
             return threat_block
 
-        # Rule 4: Use DQN if model is loaded
+        safe_moves = find_safe_moves(board, mark)
+        preferred_moves = safe_moves if safe_moves else valid_moves
+
+        # Rule 5: Use DQN if model is loaded (mask to safe moves when possible)
         if self.model_loaded:
             try:
                 state = encode_state(board, mark)
@@ -363,18 +415,19 @@ class HybridAgent:
 
                 # Mask invalid moves
                 for col in range(config.COLUMNS):
-                    if col not in valid_moves:
+                    if col not in preferred_moves:
                         q_values[col] = float("-inf")
 
-                action = self._sample_action(q_values, valid_moves)
-                if action is not None and action in valid_moves:
+                action = self._sample_action(q_values, preferred_moves)
+                if action is not None and action in preferred_moves:
                     return action
             except Exception:
                 pass
 
-        # Rule 5: Fallback to center preference
+        # Rule 6: Prefer safe center if available, otherwise best valid move near center
         center = config.COLUMNS // 2
-        valid_moves_sorted = sorted(valid_moves, key=lambda x: abs(x - center))
+        target_moves = preferred_moves if preferred_moves else valid_moves
+        valid_moves_sorted = sorted(target_moves, key=lambda x: abs(x - center))
         return valid_moves_sorted[0]
 
 
