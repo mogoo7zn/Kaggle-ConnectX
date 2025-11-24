@@ -37,10 +37,27 @@ python train_dqn.py
 python visualize.py
 ```
 
-### 3. 测试模型
+### 3. 评估与导出（轻量权重）
+
+```bash
+cd ..
+python tools/eval_and_export.py --checkpoint training/checkpoints/checkpoint_self_play_ep500.pth \
+    --export-path submission/best_model.pth --games 50
+# 同时生成 Base64 文本（可选）
+# python tools/eval_and_export.py --checkpoint <your_ckpt>.pth --export-path submission/best_model.pth \
+#     --embed-output tools/model_weights_embedded.txt
+```
+
+输出：
+- 控制台展示对随机/negamax/past snapshot 的胜/平/负结果
+- `submission/best_model.pth`：仅包含 CPU state_dict（便于提交）
+- （可选）Base64 权重文件，用于嵌入 main.py
+
+### 4. 本地测试（可选）
 
 ```bash
 # 测试训练环境
+cd training
 python test_setup.py
 
 # 本地测试智能体
@@ -48,7 +65,7 @@ cd ..
 python -c "from submission.main_backup import agent; print('Agent loaded successfully')"
 ```
 
-### 4. 生成提交文件
+### 5. 生成提交文件
 
 #### 选项 A: 嵌入式模型（推荐）
 
@@ -74,7 +91,7 @@ python prepare_submission.py
 
 **生成：** `submission.zip` (包含 main.py + best_model.pth)
 
-### 5. 提交到 Kaggle
+### 6. 提交到 Kaggle
 
 #### 通过 Web 界面
 

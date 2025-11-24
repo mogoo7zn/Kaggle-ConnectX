@@ -14,7 +14,16 @@ python train_dqn.py
 ```
 等待训练完成（约30-60分钟，取决于配置）
 
-### 3. 生成提交文件
+### 3. 评估 + 导出轻量权重
+```bash
+cd ..
+python tools/eval_and_export.py --checkpoint training/checkpoints/checkpoint_self_play_ep500.pth \
+    --export-path submission/best_model.pth --games 20
+# 如果需要同时生成 Base64 文本，追加参数：
+# --embed-output tools/model_weights_embedded.txt
+```
+
+### 4. 生成提交文件
 ```bash
 cd ../tools
 run_embed.bat  # Windows
@@ -22,7 +31,7 @@ run_embed.bat  # Windows
 ./run_embed.sh  # Linux/Mac
 ```
 
-### 4. 提交到 Kaggle
+### 5. 提交到 Kaggle
 - 上传 `submission/main.py` 到 Kaggle ConnectX 竞赛
 - 完成！
 
