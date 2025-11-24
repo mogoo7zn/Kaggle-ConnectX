@@ -3,13 +3,13 @@ Training Pipeline for DQN ConnectX Agent
 Supports self-play and opponent-based training with visualization
 """
 
+import json
 import numpy as np
 import random
 import time
 import os
-from typing import List, Tuple, Optional
+from typing import Callable, Dict, List, Tuple, Optional
 from collections import deque
-from kaggle_environments import make
 
 import sys
 import os
@@ -69,6 +69,191 @@ class TrainingMetrics:
     def get_recent_avg_loss(self) -> float:
         """Get average loss over recent training steps."""
         return np.mean(self.loss_values[-100:]) if self.loss_values else 0.0
+
+
+def random_bot_policy(board: List[int], mark: int) -> int:
+    """Simple random policy that selects from valid moves."""
+    valid_moves = get_valid_moves(board)
+    return random.choice(valid_moves) if valid_moves else 0
+
+
+def center_preference_policy(board: List[int], mark: int) -> int:
+    """Heuristic bot that prioritizes center columns."""
+    valid_moves = get_valid_moves(board)
+    if not valid_moves:
+        return 0
+
+    center_col = config.COLUMNS // 2
+    return min(valid_moves, key=lambda col: (abs(center_col - col), random.random()))
+
+
+def negamax_bot_policy(board: List[int], mark: int) -> int:
+    """Wrapper around the negamax heuristic for compatibility."""
+    valid_moves = get_valid_moves(board)
+    if not valid_moves:
+        return 0
+    return get_negamax_move(board, mark)
+
+
+class OpponentSampler:
+    """Manage opponent sampling from heuristics and saved checkpoints."""
+
+    def __init__(self, checkpoint_dir: str, top_k: int = 3):
+        self.checkpoint_dir = checkpoint_dir
+        self.top_k = top_k
+        self.snapshot_metadata: List[Dict] = []
+        self.cached_agents: Dict[str, Callable[[List[int], int], int]] = {}
+        self.latest_checkpoint: Optional[str] = None
+        self.heuristic_policies = {
+            'random': random_bot_policy,
+            'center': center_preference_policy,
+            'negamax': negamax_bot_policy,
+        }
+
+    def _load_checkpoint_policy(self, path: str) -> Callable[[List[int], int], int]:
+        if path not in self.cached_agents:
+            opponent_agent = DQNAgent(model_type='standard', use_double_dqn=True)
+            opponent_agent.load_model(path)
+            opponent_agent.epsilon = 0.0
+
+            def policy(board: List[int], mark: int) -> int:
+                return opponent_agent.select_action(board, mark, epsilon=0.0)
+
+            self.cached_agents[path] = policy
+
+        return self.cached_agents[path]
+
+    def register_snapshot(self, path: str, win_rate: float, episode: int):
+        """Register a new checkpoint for sampling and keep top-K by win rate."""
+        self.latest_checkpoint = path
+
+        metadata = {
+            'path': path,
+            'win_rate': win_rate,
+            'episode': episode,
+            'timestamp': time.time(),
+        }
+
+        # Merge or append metadata
+        existing_paths = {m['path'] for m in self.snapshot_metadata}
+        if path not in existing_paths:
+            self.snapshot_metadata.append(metadata)
+        else:
+            self.snapshot_metadata = [m for m in self.snapshot_metadata if m['path'] != path]
+            self.snapshot_metadata.append(metadata)
+
+        # Keep top-K snapshots by validation win rate
+        self.snapshot_metadata = sorted(
+            self.snapshot_metadata, key=lambda m: m['win_rate'], reverse=True
+        )[: self.top_k]
+
+        # Drop cached opponents that fell out of the top-K
+        valid_paths = {m['path'] for m in self.snapshot_metadata}
+        for cached_path in list(self.cached_agents.keys()):
+            if cached_path not in valid_paths and cached_path != self.latest_checkpoint:
+                self.cached_agents.pop(cached_path, None)
+
+    def set_latest_checkpoint(self, path: str):
+        self.latest_checkpoint = path
+
+    def sample_opponent(self, elo: float) -> Tuple[str, Callable[[List[int], int], int]]:
+        """Sample an opponent policy based on current Elo and available snapshots."""
+        pool: List[Tuple[str, Callable[[List[int], int], int]]] = []
+        kinds: List[str] = []
+
+        for name, policy in self.heuristic_policies.items():
+            pool.append((name, policy))
+            kinds.append('heuristic')
+
+        if self.latest_checkpoint:
+            pool.append(('latest', self._load_checkpoint_policy(self.latest_checkpoint)))
+            kinds.append('latest')
+
+        for meta in self.snapshot_metadata:
+            pool.append((f"snapshot_{os.path.basename(meta['path'])}", self._load_checkpoint_policy(meta['path'])))
+            kinds.append('snapshot')
+
+        if not pool:
+            return 'random', random_bot_policy
+
+        def weight(kind: str) -> float:
+            if elo < 1100:
+                return {'heuristic': 3.0, 'latest': 1.0, 'snapshot': 0.5}.get(kind, 1.0)
+            elif elo < 1250:
+                return {'heuristic': 2.0, 'latest': 3.0, 'snapshot': 2.0}.get(kind, 1.5)
+            else:
+                return {'heuristic': 1.5, 'latest': 3.0, 'snapshot': 3.0}.get(kind, 2.0)
+
+        weights = [weight(k) for k in kinds]
+        opponent_name, opponent_policy = random.choices(pool, weights=weights, k=1)[0]
+        return opponent_name, opponent_policy
+
+
+def get_policy_from_name(name: str) -> Callable[[List[int], int], int]:
+    """Return a board-level policy callable for a given bot name."""
+    mapping = {
+        'random': random_bot_policy,
+        'center': center_preference_policy,
+        'negamax': negamax_bot_policy,
+    }
+    return mapping.get(name, random_bot_policy)
+
+
+def policy_to_env_bot(policy: Callable[[List[int], int], int]) -> Callable:
+    """Wrap a board/mark policy into a Kaggle-environment compatible callable."""
+
+    def bot_fn(observation, configuration):
+        return int(policy(observation.board, observation.mark))
+
+    return bot_fn
+
+
+def evaluate_validation_suite(agent: DQNAgent, bot_names: List[str]) -> Tuple[Dict[str, dict], float]:
+    """Evaluate the agent against a suite of validation bots."""
+    results: Dict[str, dict] = {}
+
+    for bot_name in bot_names:
+        policy = get_policy_from_name(bot_name)
+        eval_results = evaluate_agent(agent, policy_to_env_bot(policy), num_games=config.EVAL_GAMES)
+        results[bot_name] = eval_results
+
+    overall_win_rate = float(np.mean([r['win_rate'] for r in results.values()])) if results else 0.0
+    return results, overall_win_rate
+
+
+def update_elo_from_win_rate(current_elo: float, win_rate: float, k_factor: float = 64.0) -> float:
+    """Update a synthetic Elo score based on recent validation win rate."""
+    return max(800.0, current_elo + k_factor * (win_rate - 0.5))
+
+
+def save_best_checkpoint(agent: DQNAgent, mode: str, episode: int, validation_results: Dict[str, dict], overall_win_rate: float) -> Tuple[str, str]:
+    """Persist the best model and accompanying metadata for later conversion."""
+    timestamp = int(time.time())
+    base_name = f"best_{mode}_ep{episode}_{timestamp}"
+    model_path = os.path.join(config.CHECKPOINT_DIR, f"{base_name}.pth")
+    metadata_path = os.path.join(config.CHECKPOINT_DIR, f"{base_name}.json")
+
+    agent.save_model(model_path)
+
+    metadata = {
+        'episode': episode,
+        'mode': mode,
+        'overall_validation_win_rate': overall_win_rate,
+        'validation_results': validation_results,
+        'timestamp': timestamp,
+        'model_path': model_path,
+        'artifacts': {
+            'torchscript_target': model_path.replace('.pth', '_ts.pt'),
+            'onnx_target': model_path.replace('.pth', '.onnx')
+        }
+    }
+
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"Best checkpoint saved to {model_path} with metadata {metadata_path}")
+
+    return model_path, metadata_path
 
 
 def play_self_play_episode(agent: DQNAgent) -> Tuple[float, int]:
@@ -154,7 +339,9 @@ def play_self_play_episode(agent: DQNAgent) -> Tuple[float, int]:
     return total_reward, episode_length
 
 
-def play_opponent_episode(agent: DQNAgent, opponent_type: str) -> Tuple[float, int]:
+def play_opponent_episode(agent: DQNAgent,
+                          opponent_policy: Callable[[List[int], int], int],
+                          opponent_name: str = "custom") -> Tuple[float, int]:
     """
     Play one episode against an opponent.
     
@@ -206,17 +393,12 @@ def play_opponent_episode(agent: DQNAgent, opponent_type: str) -> Tuple[float, i
         else:
             # Opponent's turn
             valid_moves = get_valid_moves(board)
-            
+
             if not valid_moves:
                 break
-            
-            if opponent_type == 'random':
-                action = random.choice(valid_moves)
-            elif opponent_type == 'negamax':
-                action = get_negamax_move(board, opponent_mark)
-            else:
-                action = random.choice(valid_moves)
-            
+
+            action = opponent_policy(board, opponent_mark)
+
             board = make_move(board, action, opponent_mark)
             
             done, winner = is_terminal(board)
@@ -251,12 +433,14 @@ def play_opponent_episode(agent: DQNAgent, opponent_type: str) -> Tuple[float, i
     return 0.0, episode_length
 
 
-def train_agent(agent: DQNAgent, 
+def train_agent(agent: DQNAgent,
                 mode: str = 'self_play',
                 num_episodes: int = 5000,
                 eval_interval: int = 100,
                 save_interval: int = 500,
-                opponent_type: str = 'random') -> TrainingMetrics:
+                opponent_type: str = 'random',
+                opponent_sampler: Optional[OpponentSampler] = None,
+                initial_elo: float = 1000.0) -> TrainingMetrics:
     """
     Train the DQN agent.
     
@@ -273,6 +457,8 @@ def train_agent(agent: DQNAgent,
     """
     metrics = TrainingMetrics()
     best_win_rate = 0.0
+    best_validation_win_rate = 0.0
+    current_elo = initial_elo
     
     print(f"\n{'='*60}")
     print(f"Starting training: {mode} mode")
@@ -286,14 +472,24 @@ def train_agent(agent: DQNAgent,
         episode_start = time.time()
         
         # Play episode
+        opponent_label = opponent_type
         if mode == 'self_play':
             reward, length = play_self_play_episode(agent)
         else:  # opponent mode
-            reward, length = play_opponent_episode(agent, opponent_type)
-        
-        # Train agent
-        loss = agent.train_step()
-        
+            if opponent_sampler is not None:
+                opponent_label, opponent_policy = opponent_sampler.sample_opponent(current_elo)
+            else:
+                opponent_policy = get_policy_from_name(opponent_type)
+
+            reward, length = play_opponent_episode(agent, opponent_policy, opponent_label)
+
+        # Train agent (multiple steps to leverage larger replay)
+        loss = None
+        for _ in range(config.TRAINING_STEPS_PER_EPISODE):
+            step_loss = agent.train_step()
+            if step_loss is not None:
+                loss = step_loss
+
         # Update metrics
         metrics.add_episode(reward, length, agent.epsilon)
         metrics.add_loss(loss)
@@ -309,6 +505,7 @@ def train_agent(agent: DQNAgent,
                   f"Reward: {reward:6.2f} | "
                   f"Avg Reward: {avg_reward:6.2f} | "
                   f"Length: {length:3d} | "
+                  f"Opp: {opponent_label:>8} | "
                   f"Epsilon: {agent.epsilon:.4f} | "
                   f"Loss: {avg_loss:.4f} | "
                   f"Buffer: {len(agent.memory):6d} | "
@@ -319,28 +516,39 @@ def train_agent(agent: DQNAgent,
             print(f"\n{'='*60}")
             print(f"Evaluation at episode {episode}")
             print(f"{'='*60}")
-            
-            # Evaluate against random opponent
-            eval_results = evaluate_agent(agent, "random", num_games=config.EVAL_GAMES)
-            win_rate = eval_results['win_rate']
-            
-            print(f"Win rate vs random: {win_rate:.2%} "
-                  f"({eval_results['wins']}W-{eval_results['losses']}L-{eval_results['draws']}D)")
-            
-            metrics.add_evaluation(episode, win_rate)
-            
-            # Save best model
-            if win_rate > best_win_rate:
-                best_win_rate = win_rate
-                model_path = os.path.join(config.MODEL_DIR, f'best_model_{mode}.pth')
-                agent.save_model(model_path)
-                print(f"New best model saved! Win rate: {win_rate:.2%}")
-            
+
+            # Evaluate against validation suite
+            validation_results, overall_validation_win_rate = evaluate_validation_suite(agent, config.VALIDATION_BOTS)
+
+            for bot_name, eval_results in validation_results.items():
+                print(f"Win rate vs {bot_name:7s}: {eval_results['win_rate']:.2%} "
+                      f"({eval_results['wins']}W-{eval_results['losses']}L-{eval_results['draws']}D)")
+
+            print(f"Overall validation win rate: {overall_validation_win_rate:.2%}")
+
+            metrics.add_evaluation(episode, overall_validation_win_rate)
+
+            # Save best model by validation performance
+            if overall_validation_win_rate > best_validation_win_rate:
+                best_validation_win_rate = overall_validation_win_rate
+                model_path, metadata_path = save_best_checkpoint(
+                    agent, mode, episode, validation_results, overall_validation_win_rate
+                )
+                if opponent_sampler is not None:
+                    opponent_sampler.register_snapshot(model_path, overall_validation_win_rate, episode)
+
+            # Update synthetic Elo to schedule tougher opponents
+            current_elo = update_elo_from_win_rate(current_elo, overall_validation_win_rate)
+
+            # Track best historical win rate for logging continuity
+            if overall_validation_win_rate > best_win_rate:
+                best_win_rate = overall_validation_win_rate
+
             print(f"{'='*60}\n")
         
         # Save checkpoint
         if episode % save_interval == 0:
-            checkpoint_path = os.path.join(config.MODEL_DIR, 
+            checkpoint_path = os.path.join(config.MODEL_DIR,
                                           f'checkpoint_{mode}_ep{episode}.pth')
             checkpoint_metrics = {
                 'episode': episode,
@@ -349,6 +557,9 @@ def train_agent(agent: DQNAgent,
                 'best_win_rate': best_win_rate
             }
             agent.save_checkpoint(checkpoint_path, episode, checkpoint_metrics)
+
+            if opponent_sampler is not None:
+                opponent_sampler.set_latest_checkpoint(checkpoint_path)
     
     # Final statistics
     total_time = time.time() - start_time
@@ -376,9 +587,10 @@ def main():
     """Main training function."""
     # Create directories
     create_directories()
-    
+
     # Create agent
     agent = DQNAgent(model_type='standard', use_double_dqn=True)
+    opponent_sampler = OpponentSampler(config.CHECKPOINT_DIR, top_k=config.TOP_K_SNAPSHOTS)
     
     # Phase 1: Self-play training
     print("\n" + "="*60)
@@ -390,7 +602,8 @@ def main():
         mode='self_play',
         num_episodes=config.SELF_PLAY_EPISODES,
         eval_interval=config.EVAL_INTERVAL,
-        save_interval=config.SAVE_INTERVAL
+        save_interval=config.SAVE_INTERVAL,
+        opponent_sampler=opponent_sampler
     )
     
     # Phase 2: Fine-tuning against opponents
@@ -406,7 +619,8 @@ def main():
         num_episodes=config.OPPONENT_EPISODES // 2,
         eval_interval=config.EVAL_INTERVAL,
         save_interval=config.SAVE_INTERVAL,
-        opponent_type='random'
+        opponent_type='random',
+        opponent_sampler=opponent_sampler
     )
     
     # Train against negamax opponent
@@ -417,7 +631,8 @@ def main():
         num_episodes=config.OPPONENT_EPISODES // 2,
         eval_interval=config.EVAL_INTERVAL,
         save_interval=config.SAVE_INTERVAL,
-        opponent_type='negamax'
+        opponent_type='negamax',
+        opponent_sampler=opponent_sampler
     )
     
     # Final evaluation
@@ -426,12 +641,12 @@ def main():
     print("="*60)
     
     print("\nEvaluating against RANDOM opponent...")
-    random_eval = evaluate_agent(agent, "random", num_games=100)
+    random_eval = evaluate_agent(agent, policy_to_env_bot(random_bot_policy), num_games=100)
     print(f"Win rate: {random_eval['win_rate']:.2%} "
           f"({random_eval['wins']}W-{random_eval['losses']}L-{random_eval['draws']}D)")
-    
+
     print("\nEvaluating against NEGAMAX opponent...")
-    negamax_eval = evaluate_agent(agent, "negamax", num_games=100)
+    negamax_eval = evaluate_agent(agent, policy_to_env_bot(negamax_bot_policy), num_games=100)
     print(f"Win rate: {negamax_eval['win_rate']:.2%} "
           f"({negamax_eval['wins']}W-{negamax_eval['losses']}L-{negamax_eval['draws']}D)")
     

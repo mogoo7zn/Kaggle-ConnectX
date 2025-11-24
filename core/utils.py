@@ -476,6 +476,7 @@ def create_directories():
     """Create necessary directories for saving models, logs, and plots."""
     import os
     os.makedirs(config.MODEL_DIR, exist_ok=True)
+    os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(config.LOG_DIR, exist_ok=True)
     os.makedirs(config.PLOT_DIR, exist_ok=True)
 

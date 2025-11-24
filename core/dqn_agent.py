@@ -47,9 +47,24 @@ class DQNAgent:
         self.target_net.eval()  # Target network is always in eval mode
         
         # Optimizer
-        self.optimizer = optim.Adam(self.policy_net.parameters(), 
+        self.optimizer = optim.Adam(self.policy_net.parameters(),
                                     lr=config.LEARNING_RATE)
-        
+
+        # Optional learning rate scheduler
+        self.scheduler = None
+        if config.LR_SCHEDULE == "cosine":
+            self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer,
+                T_max=config.LR_T_MAX,
+                eta_min=config.MIN_LEARNING_RATE
+            )
+        elif config.LR_SCHEDULE == "step":
+            self.scheduler = optim.lr_scheduler.StepLR(
+                self.optimizer,
+                step_size=config.LR_STEP_INTERVAL,
+                gamma=config.LR_STEP_GAMMA
+            )
+
         # Loss function
         self.criterion = nn.SmoothL1Loss()  # Huber loss
         
@@ -167,9 +182,13 @@ class DQNAgent:
         
         # Gradient clipping for stability
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10.0)
-        
+
         self.optimizer.step()
-        
+
+        # Scheduler step
+        if self.scheduler is not None:
+            self.scheduler.step()
+
         # Update statistics
         self.steps_done += 1
         loss_value = loss.item()
