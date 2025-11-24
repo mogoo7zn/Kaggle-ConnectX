@@ -3,20 +3,23 @@ Training Pipeline for DQN ConnectX Agent
 Supports self-play and opponent-based training with visualization
 """
 
+import csv
 import json
 import numpy as np
 import random
 import time
 import os
+from datetime import datetime
+from itertools import product
 from typing import Callable, Dict, List, Tuple, Optional
 from collections import deque
 
 import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 
 from config import config
 from dqn_agent import DQNAgent, evaluate_agent
+from torch.utils.tensorboard import SummaryWriter
 from utils import (
     encode_state, get_valid_moves, is_terminal, 
     make_move, calculate_reward, create_directories,
@@ -33,9 +36,13 @@ class TrainingMetrics:
         self.episode_lengths = []
         self.win_rates = []
         self.loss_values = []
+        self.td_error_means = []
+        self.entropy_values = []
+        self.q_means = []
+        self.q_maxes = []
         self.epsilon_values = []
         self.eval_episodes = []
-        
+
         # Running averages
         self.recent_rewards = deque(maxlen=100)
         self.recent_lengths = deque(maxlen=100)
@@ -57,6 +64,18 @@ class TrainingMetrics:
         """Add training loss."""
         if loss is not None:
             self.loss_values.append(loss)
+
+    def add_training_stats(self, loss: float, td_error: Optional[float], entropy: Optional[float], q_mean: Optional[float], q_max: Optional[float]):
+        if loss is not None:
+            self.loss_values.append(loss)
+        if td_error is not None:
+            self.td_error_means.append(td_error)
+        if entropy is not None:
+            self.entropy_values.append(entropy)
+        if q_mean is not None:
+            self.q_means.append(q_mean)
+        if q_max is not None:
+            self.q_maxes.append(q_max)
     
     def get_recent_avg_reward(self) -> float:
         """Get average reward over recent episodes."""
@@ -75,6 +94,44 @@ def random_bot_policy(board: List[int], mark: int) -> int:
     """Simple random policy that selects from valid moves."""
     valid_moves = get_valid_moves(board)
     return random.choice(valid_moves) if valid_moves else 0
+
+
+class TrainingLogger:
+    """Log metrics to TensorBoard and CSV for quick iteration."""
+
+    def __init__(self, run_name: str):
+        self.run_dir = os.path.join(config.LOG_DIR, "runs", run_name)
+        os.makedirs(self.run_dir, exist_ok=True)
+        self.writer = SummaryWriter(self.run_dir)
+
+        self.csv_path = os.path.join(self.run_dir, "metrics.csv")
+        fieldnames = [
+            "episode", "reward", "avg_reward", "length", "epsilon", "loss",
+            "td_error", "entropy", "q_mean", "q_max", "grad_norm", "buffer_size",
+            "opponent"
+        ]
+        self.csv_file = open(self.csv_path, "w", newline="")
+        self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
+        self.csv_writer.writeheader()
+
+    def log_episode(self, episode: int, data: Dict[str, Optional[float]]):
+        for key, value in data.items():
+            if key == "opponent":
+                continue
+            if value is not None:
+                self.writer.add_scalar(f"train/{key}", value, episode)
+
+        csv_row = {"episode": episode, **data}
+        self.csv_writer.writerow(csv_row)
+        self.csv_file.flush()
+
+    def log_evaluation(self, episode: int, win_rate: float, prefix: str = "validation"):
+        self.writer.add_scalar(f"{prefix}/win_rate", win_rate, episode)
+
+    def close(self):
+        self.writer.flush()
+        self.writer.close()
+        self.csv_file.close()
 
 
 def center_preference_policy(board: List[int], mark: int) -> int:
@@ -224,6 +281,78 @@ def evaluate_validation_suite(agent: DQNAgent, bot_names: List[str]) -> Tuple[Di
 def update_elo_from_win_rate(current_elo: float, win_rate: float, k_factor: float = 64.0) -> float:
     """Update a synthetic Elo score based on recent validation win rate."""
     return max(800.0, current_elo + k_factor * (win_rate - 0.5))
+
+
+def generate_sweep_configs():
+    """Yield hyperparameter combinations for sweeping."""
+    keys, values = zip(*config.SWEEP_PARAM_GRID.items())
+    for combo in product(*values):
+        yield dict(zip(keys, combo))
+
+
+def apply_hparams(params: Dict[str, object]) -> Dict[str, object]:
+    """Apply hyperparameters to the global config and return previous values."""
+    previous = {}
+    for key, value in params.items():
+        if hasattr(config, key):
+            previous[key] = getattr(config, key)
+            setattr(config, key, value)
+    return previous
+
+
+def restore_hparams(previous: Dict[str, object]):
+    for key, value in previous.items():
+        setattr(config, key, value)
+
+
+def build_run_name(params: Dict[str, object], mode: str) -> str:
+    ddqn_label = "ddqn" if params.get("USE_DOUBLE_DQN", True) else "dqn"
+    model_label = params.get("MODEL_TYPE", "standard")
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return (f"{mode}_bs{config.BATCH_SIZE}_lr{config.LEARNING_RATE}_"
+            f"g{config.GAMMA}_do{config.DROPOUT}_{model_label}_{ddqn_label}_{timestamp}")
+
+
+def run_hparam_sweep():
+    """Run a lightweight hyperparameter sweep across key knobs."""
+    results = []
+
+    for params in generate_sweep_configs():
+        print(f"\n>>> Running sweep configuration: {params}")
+        previous = apply_hparams(params)
+
+        try:
+            agent = DQNAgent(
+                model_type=params.get("MODEL_TYPE", "standard"),
+                use_double_dqn=params.get("USE_DOUBLE_DQN", True)
+            )
+            opponent_sampler = OpponentSampler(config.CHECKPOINT_DIR, top_k=config.TOP_K_SNAPSHOTS)
+            run_name = build_run_name(params, "sweep")
+
+            metrics = train_agent(
+                agent=agent,
+                mode='self_play',
+                num_episodes=config.SWEEP_EPISODES,
+                eval_interval=max(1, config.SWEEP_EPISODES // 3),
+                save_interval=config.SWEEP_EPISODES + 1,
+                opponent_sampler=opponent_sampler,
+                run_name=run_name
+            )
+
+            best_validation = max(metrics.win_rates) if metrics.win_rates else 0.0
+            results.append({
+                'params': params,
+                'best_validation_win_rate': best_validation,
+                'run_name': run_name,
+            })
+        finally:
+            restore_hparams(previous)
+
+    print("\nSweep complete. Summary:")
+    for record in results:
+        print(f"{record['run_name']}: win_rate={record['best_validation_win_rate']:.2%} params={record['params']}")
+
+    return results
 
 
 def save_best_checkpoint(agent: DQNAgent, mode: str, episode: int, validation_results: Dict[str, dict], overall_win_rate: float) -> Tuple[str, str]:
@@ -440,7 +569,9 @@ def train_agent(agent: DQNAgent,
                 save_interval: int = 500,
                 opponent_type: str = 'random',
                 opponent_sampler: Optional[OpponentSampler] = None,
-                initial_elo: float = 1000.0) -> TrainingMetrics:
+                initial_elo: float = 1000.0,
+                run_name: Optional[str] = None,
+                logger: Optional[TrainingLogger] = None) -> TrainingMetrics:
     """
     Train the DQN agent.
     
@@ -459,6 +590,9 @@ def train_agent(agent: DQNAgent,
     best_win_rate = 0.0
     best_validation_win_rate = 0.0
     current_elo = initial_elo
+
+    run_name = run_name or f"{mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    logger = logger or TrainingLogger(run_name)
     
     print(f"\n{'='*60}")
     print(f"Starting training: {mode} mode")
@@ -484,15 +618,42 @@ def train_agent(agent: DQNAgent,
             reward, length = play_opponent_episode(agent, opponent_policy, opponent_label)
 
         # Train agent (multiple steps to leverage larger replay)
-        loss = None
+        step_stats: List[Dict[str, float]] = []
         for _ in range(config.TRAINING_STEPS_PER_EPISODE):
-            step_loss = agent.train_step()
-            if step_loss is not None:
-                loss = step_loss
+            stats = agent.train_step()
+            if stats is not None:
+                step_stats.append(stats)
+
+        loss = td_error = entropy = q_mean = q_max = grad_norm = None
+        if step_stats:
+            loss = float(np.mean([s['loss'] for s in step_stats if s.get('loss') is not None]))
+            td_error = float(np.mean([s['td_error_mean'] for s in step_stats]))
+            entropy = float(np.mean([s['entropy'] for s in step_stats]))
+            q_mean = float(np.mean([s['q_mean'] for s in step_stats]))
+            q_max = float(np.mean([s['q_max'] for s in step_stats]))
+            grad_norm = float(np.mean([s['grad_norm'] for s in step_stats]))
 
         # Update metrics
         metrics.add_episode(reward, length, agent.epsilon)
-        metrics.add_loss(loss)
+        metrics.add_training_stats(loss, td_error, entropy, q_mean, q_max)
+
+        log_data = {
+            'reward': reward,
+            'avg_reward': metrics.get_recent_avg_reward(),
+            'length': length,
+            'epsilon': agent.epsilon,
+            'loss': loss,
+            'td_error': td_error,
+            'entropy': entropy,
+            'q_mean': q_mean,
+            'q_max': q_max,
+            'grad_norm': grad_norm,
+            'buffer_size': len(agent.memory),
+            'opponent': opponent_label,
+        }
+
+        if logger:
+            logger.log_episode(episode, log_data)
         
         # Progress reporting
         if episode % 10 == 0:
@@ -508,6 +669,8 @@ def train_agent(agent: DQNAgent,
                   f"Opp: {opponent_label:>8} | "
                   f"Epsilon: {agent.epsilon:.4f} | "
                   f"Loss: {avg_loss:.4f} | "
+                  f"TD: {td_error if td_error is not None else 0.0:.4f} | "
+                  f"Entropy: {entropy if entropy is not None else 0.0:.4f} | "
                   f"Buffer: {len(agent.memory):6d} | "
                   f"Time: {episode_time:.2f}s")
         
@@ -527,6 +690,9 @@ def train_agent(agent: DQNAgent,
             print(f"Overall validation win rate: {overall_validation_win_rate:.2%}")
 
             metrics.add_evaluation(episode, overall_validation_win_rate)
+
+            if logger:
+                logger.log_evaluation(episode, overall_validation_win_rate)
 
             # Save best model by validation performance
             if overall_validation_win_rate > best_validation_win_rate:
@@ -579,7 +745,10 @@ def train_agent(agent: DQNAgent,
     # Generate visualization
     plot_path = os.path.join(config.PLOT_DIR, f'training_metrics_{mode}.png')
     plot_training_metrics(metrics, save_path=plot_path, show=False)
-    
+
+    if logger:
+        logger.close()
+
     return metrics
 
 
@@ -588,8 +757,13 @@ def main():
     # Create directories
     create_directories()
 
+    if config.SWEEP_ENABLED or os.environ.get("RUN_SWEEP", "0") == "1":
+        run_hparam_sweep()
+        return
+
     # Create agent
-    agent = DQNAgent(model_type='standard', use_double_dqn=True)
+    base_params = {'MODEL_TYPE': 'standard', 'USE_DOUBLE_DQN': True}
+    agent = DQNAgent(model_type=base_params['MODEL_TYPE'], use_double_dqn=base_params['USE_DOUBLE_DQN'])
     opponent_sampler = OpponentSampler(config.CHECKPOINT_DIR, top_k=config.TOP_K_SNAPSHOTS)
     
     # Phase 1: Self-play training
@@ -603,7 +777,8 @@ def main():
         num_episodes=config.SELF_PLAY_EPISODES,
         eval_interval=config.EVAL_INTERVAL,
         save_interval=config.SAVE_INTERVAL,
-        opponent_sampler=opponent_sampler
+        opponent_sampler=opponent_sampler,
+        run_name=build_run_name(base_params, 'self_play')
     )
     
     # Phase 2: Fine-tuning against opponents
@@ -620,7 +795,8 @@ def main():
         eval_interval=config.EVAL_INTERVAL,
         save_interval=config.SAVE_INTERVAL,
         opponent_type='random',
-        opponent_sampler=opponent_sampler
+        opponent_sampler=opponent_sampler,
+        run_name=build_run_name(base_params, 'vs_random')
     )
     
     # Train against negamax opponent
@@ -632,7 +808,8 @@ def main():
         eval_interval=config.EVAL_INTERVAL,
         save_interval=config.SAVE_INTERVAL,
         opponent_type='negamax',
-        opponent_sampler=opponent_sampler
+        opponent_sampler=opponent_sampler,
+        run_name=build_run_name(base_params, 'vs_negamax')
     )
     
     # Final evaluation

@@ -18,6 +18,7 @@ class DQNConfig:
     CONV_CHANNELS = [64, 128, 128]  # convolutional layer channels
     FC_HIDDEN = 256  # fully connected hidden layer size
     OUTPUT_SIZE = 7  # number of possible actions (columns)
+    DROPOUT = 0.3  # dropout probability for fully connected layers
     
     # Training parameters
     LEARNING_RATE = 5e-4
@@ -41,6 +42,7 @@ class DQNConfig:
     REPLAY_BUFFER_SIZE = 300000
     MIN_REPLAY_SIZE = 5000  # minimum samples before training starts
     TRAINING_STEPS_PER_EPISODE = 4
+    GRAD_CLIP_NORM = 10.0
 
     # Training episodes
     SELF_PLAY_EPISODES = 5000
@@ -61,6 +63,18 @@ class DQNConfig:
     CHECKPOINT_DIR = "training/checkpoints"
     LOG_DIR = "logs"
     PLOT_DIR = "plots"
+
+    # Experimentation
+    SWEEP_ENABLED = False
+    SWEEP_EPISODES = 300
+    SWEEP_PARAM_GRID = {
+        "BATCH_SIZE": [96, 128],
+        "LEARNING_RATE": [5e-4, 1e-3],
+        "GAMMA": [0.97, 0.99],
+        "DROPOUT": [0.2, 0.35],
+        "MODEL_TYPE": ["standard", "dueling"],
+        "USE_DOUBLE_DQN": [True, False],
+    }
 
     # Device
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
