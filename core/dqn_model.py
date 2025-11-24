@@ -64,7 +64,7 @@ class DQNNetwork(nn.Module):
         self.fc3 = nn.Linear(config.FC_HIDDEN // 2, config.OUTPUT_SIZE)
         
         # Dropout for regularization
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(config.DROPOUT)
     
     def forward(self, x):
         """
@@ -153,7 +153,7 @@ class DuelingDQN(nn.Module):
         self.advantage_fc1 = nn.Linear(conv_output_size, config.FC_HIDDEN)
         self.advantage_fc2 = nn.Linear(config.FC_HIDDEN, config.OUTPUT_SIZE)
         
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(config.DROPOUT)
     
     def forward(self, x):
         """

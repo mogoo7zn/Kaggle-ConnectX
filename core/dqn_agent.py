@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict
 from config import config
 from dqn_model import create_model, count_parameters
 from replay_buffer import ReplayBuffer
@@ -139,9 +139,9 @@ class DQNAgent:
     def train_step(self) -> Optional[float]:
         """
         Perform one training step (sample batch and update network).
-        
+
         Returns:
-            Loss value if training occurred, None otherwise
+            Dictionary of training statistics if training occurred, None otherwise
         """
         # Check if enough samples in memory
         if not self.memory.is_ready(config.MIN_REPLAY_SIZE):
@@ -158,7 +158,8 @@ class DQNAgent:
         dones = torch.from_numpy(dones).to(self.device)
         
         # Compute current Q values
-        current_q_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        q_values = self.policy_net(states)
+        current_q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
         
         # Compute next Q values
         with torch.no_grad():
@@ -172,16 +173,25 @@ class DQNAgent:
             
             # Compute target Q values
             target_q_values = rewards + (1 - dones) * config.GAMMA * next_q_values
-        
+
         # Compute loss
         loss = self.criterion(current_q_values, target_q_values)
-        
+
+        # Validate loss scale
+        if not torch.isfinite(loss):
+            print("Warning: non-finite loss encountered, skipping update.")
+            self.optimizer.zero_grad()
+            self.update_epsilon()
+            return None
+
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
-        
+
         # Gradient clipping for stability
-        torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10.0)
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            self.policy_net.parameters(), max_norm=config.GRAD_CLIP_NORM
+        )
 
         self.optimizer.step()
 
@@ -193,15 +203,31 @@ class DQNAgent:
         self.steps_done += 1
         loss_value = loss.item()
         self.losses.append(loss_value)
-        
+
         # Update epsilon
         self.update_epsilon()
-        
+
         # Update target network periodically
         if self.steps_done % config.TARGET_UPDATE_FREQ == 0:
             self.update_target_network()
-        
-        return loss_value
+
+        with torch.no_grad():
+            td_errors = (target_q_values - current_q_values).detach()
+            td_error_abs = td_errors.abs()
+            entropy = torch.distributions.Categorical(logits=q_values).entropy()
+
+            stats = {
+                'loss': loss_value,
+                'td_error_mean': td_error_abs.mean().item(),
+                'td_error_max': td_error_abs.max().item(),
+                'grad_norm': float(grad_norm),
+                'q_mean': q_values.mean().item(),
+                'q_max': q_values.max().item(),
+                'q_min': q_values.min().item(),
+                'entropy': entropy.mean().item(),
+            }
+
+        return stats
     
     def update_target_network(self):
         """Copy weights from policy network to target network."""
