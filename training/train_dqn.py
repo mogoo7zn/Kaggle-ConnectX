@@ -593,7 +593,7 @@ def play_opponent_episode(agent: DQNAgent,
 
 def train_agent(agent: DQNAgent,
                 mode: str = 'self_play',
-                num_episodes: int = 10000,
+                num_episodes: int = 5000,
                 eval_interval: int = 100,
                 save_interval: int = 500,
                 opponent_type: str = 'random',

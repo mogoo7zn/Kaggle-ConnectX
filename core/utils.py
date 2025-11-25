@@ -214,10 +214,48 @@ def state_to_tensor(state: np.ndarray, device: torch.device = None) -> torch.Ten
     return tensor.to(device)
 
 
+def get_max_consecutive(board: List[int], mark: int) -> int:
+    """
+    Get the maximum number of consecutive pieces for a player in any direction.
+    
+    Args:
+        board: Current board state
+        mark: Player's mark to check
+    
+    Returns:
+        Maximum consecutive pieces count
+    """
+    rows, cols = config.ROWS, config.COLUMNS
+    board_2d = np.array(board).reshape(rows, cols)
+    max_consecutive = 0
+    
+    # Check all directions from each position
+    directions = [
+        (0, 1),   # horizontal
+        (1, 0),   # vertical
+        (1, 1),   # diagonal positive
+        (1, -1),  # diagonal negative
+    ]
+    
+    for row in range(rows):
+        for col in range(cols):
+            if board_2d[row, col] == mark:
+                for delta_row, delta_col in directions:
+                    # Count forward
+                    count_forward = count_consecutive(board_2d, row, col, delta_row, delta_col, mark)
+                    # Count backward
+                    count_backward = count_consecutive(board_2d, row, col, -delta_row, -delta_col, mark)
+                    # Total consecutive in this direction (subtract 1 to avoid double counting center)
+                    total = count_forward + count_backward - 1
+                    max_consecutive = max(max_consecutive, total)
+    
+    return max_consecutive
+
+
 def calculate_reward(board: List[int], action: int, mark: int, 
                      next_board: List[int], done: bool, winner: Optional[int]) -> float:
     """
-    Calculate reward for a state-action transition.
+    Calculate reward for a state-action transition with heuristic intermediate rewards.
     
     Args:
         board: Current board state
@@ -234,6 +272,7 @@ def calculate_reward(board: List[int], action: int, mark: int,
     if not is_valid_move(board, action):
         return config.REWARD_INVALID
     
+    # 终局奖励
     if done:
         if winner == mark:
             return config.REWARD_WIN
@@ -242,7 +281,41 @@ def calculate_reward(board: List[int], action: int, mark: int,
         else:
             return config.REWARD_LOSS
     
-    return config.REWARD_STEP
+    # 启发式中间奖励
+    reward = config.REWARD_STEP
+    
+    # 1. 自己的"连续子数"增加给正向奖励
+    prev_max_consecutive = get_max_consecutive(board, mark)
+    next_max_consecutive = get_max_consecutive(next_board, mark)
+    
+    if next_max_consecutive > prev_max_consecutive:
+        consecutive_increase = next_max_consecutive - prev_max_consecutive
+        # 连续子数越多，奖励递增
+        consecutive_reward = (config.REWARD_CONSECUTIVE_BASE * 
+                            (config.REWARD_CONSECUTIVE_MULTIPLIER ** (next_max_consecutive - 1)) * 
+                            consecutive_increase)
+        reward += consecutive_reward
+    
+    # 2. 对手即将获胜时，提前防守也给予少量奖励
+    opponent_mark = 3 - mark
+    
+    # 检查在移动前，对手是否有立即获胜的机会（对手下一步就能获胜）
+    opponent_winning_moves = count_immediate_wins(board, opponent_mark)
+    if opponent_winning_moves:
+        # 如果当前动作阻止了对手立即获胜
+        blocking_move = find_blocking_move(board, mark)
+        if blocking_move == action:
+            reward += config.REWARD_BLOCK_OPPONENT_WIN
+    
+    # 检查在移动前，对手是否有威胁（3连子且可以形成4连）
+    opponent_threats = detect_threats(board, opponent_mark)
+    if opponent_threats:
+        # 检查当前动作是否阻止了对手的威胁
+        threat_blocking_move = find_threat_blocking_move(board, mark)
+        if threat_blocking_move == action:
+            reward += config.REWARD_BLOCK_OPPONENT_THREAT
+    
+    return reward
 
 
 def find_winning_move(board: List[int], mark: int) -> Optional[int]:

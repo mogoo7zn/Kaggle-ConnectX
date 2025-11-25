@@ -21,9 +21,9 @@ class DQNConfig:
     DROPOUT = 0.3  # dropout probability for fully connected layers
     
     # Training parameters
-    LEARNING_RATE = 5e-4
-    MIN_LEARNING_RATE = 1e-5
-    BATCH_SIZE = 128
+    LEARNING_RATE = 1e-3
+    MIN_LEARNING_RATE = 1e-4
+    BATCH_SIZE = 512
     GAMMA = 0.99  # discount factor
     TARGET_UPDATE_FREQ = 500  # update target network every N steps
 
@@ -51,11 +51,18 @@ class DQNConfig:
     EVAL_GAMES = 50  # number of games for evaluation
     
     # Reward shaping
+    # 终局奖励
     REWARD_WIN = 1.0
-    REWARD_LOSS = -1.0
-    REWARD_DRAW = 0.0
-    REWARD_INVALID = -0.5
-    REWARD_STEP = 0.0  # small negative reward per step (optional)
+    REWARD_LOSS = -1.2  # 失败惩罚比成功略大（绝对值）
+    REWARD_DRAW = -0.15  # 平局较小惩罚
+    REWARD_INVALID = -0.8
+    REWARD_STEP = -0.01  # small negative reward per step (optional)
+    
+    # 启发式中间奖励
+    REWARD_CONSECUTIVE_BASE = 0.05  # 基础奖励：每增加一个连续子
+    REWARD_CONSECUTIVE_MULTIPLIER = 1.2  # 连续子数越多，奖励递增
+    REWARD_BLOCK_OPPONENT_WIN = 0.15  # 阻止对手即将获胜的奖励
+    REWARD_BLOCK_OPPONENT_THREAT = 0.08  # 阻止对手威胁（3连子）的奖励
     
     # Saving and logging
     SAVE_INTERVAL = 500  # save checkpoint every N episodes
