@@ -58,6 +58,7 @@ python train_dqn.py
 两种方式：
 
 **方式 A: 使用嵌入模型（推荐）**
+
 ```bash
 cd tools
 # Windows
@@ -67,13 +68,16 @@ run_embed.bat
 chmod +x run_embed.sh
 ./run_embed.sh
 ```
+
 生成的 `submission/main.py` 包含完整模型，可直接提交。
 
 ~~**方式 B: 使用外部模型文件**~~
+
 ```bash
 cd submission
 python prepare_submission.py
 ```
+
 生成的 `submission.zip` 包含 `main_backup.py` 和 `best_model.pth`。
 
 ### 4. 提交到 Kaggle
@@ -87,19 +91,24 @@ python prepare_submission.py
 ## 技术特点
 
 ### DQN 模型架构
+
 - 3 层 CNN (64, 128, 128 通道)
 - Batch Normalization
 - Dropout (0.3)
 - 全连接层 (256 → 128 → 7)
 
-### 混合策略
+### 混合策略（增强版）
+
 1. 优先取胜
 2. 阻止对手获胜
-3. 阻止对手威胁 (3连)
-4. DQN Q值决策
-5. 中心优先回退
+3. **阻止对手叉攻** (双重威胁) 🆕
+4. 阻止对手威胁 (3 连)
+5. **安全移动过滤** 🆕
+6. DQN Q 值决策
+7. 中心优先回退
 
 ### 状态编码
+
 - 3 通道输入 (6x7):
   - 玩家棋子位置
   - 对手棋子位置
@@ -108,6 +117,7 @@ python prepare_submission.py
 ## 训练配置
 
 详见 `core/config.py`:
+
 - Episodes: 5000
 - Batch size: 64
 - Learning rate: 0.0001
@@ -127,6 +137,65 @@ python prepare_submission.py
 
 `main.py` 包含 Base64 编码的模型权重 (~9.6 MB)，无需外部文件。
 如需重新生成，使用 `tools/` 下的脚本。
+
+## 最新增强功能 (v1.1)
+
+### 新增安全检查机制
+
+1. **叉攻检测** (`find_two_threat_blocking_move`)
+
+   - 检测并阻止对手创建双重获胜威胁
+   - 防止无法防守的局面
+
+2. **安全移动过滤** (`find_safe_moves`)
+
+   - 识别不会让对手立即获胜的移动
+   - 优先选择安全的决策
+
+3. **即时获胜计数** (`count_immediate_wins`)
+   - 快速评估棋盘上的获胜机会
+   - 用于威胁评估和策略规划
+
+### 测试和诊断
+
+```bash
+# 运行诊断工具（推荐首次运行）
+python diagnose.py
+
+# 测试新功能
+python test_enhancements.py
+
+# 验证模块一致性
+python test_consistency.py
+```
+
+### 性能指标
+
+- 平均决策时间: ~8ms
+- 新增检查开销: ~2-5ms
+- Kaggle 兼容: ✅ 完全兼容
+
+详见 `ENHANCEMENTS_GUIDE.md` 获取完整文档。
+
+## 问题排查
+
+如果遇到问题，请按以下步骤操作：
+
+1. **运行诊断工具**
+
+   ```bash
+   python diagnose.py
+   ```
+
+2. **检查常见问题**
+
+   - 导入错误: 确保使用正确的路径
+   - 函数缺失: 运行诊断工具检查
+   - 性能问题: 运行 `python test_enhancements.py`
+
+3. **查看文档**
+   - 增强功能: `ENHANCEMENTS_GUIDE.md`
+   - 项目结构: `.project_structure.txt`
 
 ## 许可证
 

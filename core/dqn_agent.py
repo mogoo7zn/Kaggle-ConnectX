@@ -273,7 +273,7 @@ class DQNAgent:
         Returns:
             Dictionary containing checkpoint metadata
         """
-        checkpoint = torch.load(filepath, map_location=self.device)
+        checkpoint = torch.load(filepath, map_location=self.device, weights_only=False)
         
         self.policy_net.load_state_dict(checkpoint['policy_net_state_dict'])
         self.target_net.load_state_dict(checkpoint['target_net_state_dict'])
@@ -305,7 +305,7 @@ class DQNAgent:
         Args:
             filepath: Path to model file
         """
-        state_dict = torch.load(filepath, map_location=self.device)
+        state_dict = torch.load(filepath, map_location=self.device, weights_only=False)
         self.policy_net.load_state_dict(state_dict)
         self.policy_net.eval()
         print(f"Model loaded from {filepath}")
@@ -336,54 +336,78 @@ def evaluate_agent(agent: DQNAgent, opponent_agent, num_games: int = 100) -> dic
     
     Args:
         agent: DQN agent to evaluate
-        opponent_agent: Opponent agent function or DQNAgent
+        opponent_agent: Opponent agent function (takes board, mark as args) or DQNAgent
         num_games: Number of games to play
     
     Returns:
         Dictionary with win/loss/draw statistics
     """
-    from kaggle_environments import make
-    from utils import is_terminal
+    from utils import is_terminal, make_move, get_valid_moves
     
     wins = 0
     losses = 0
     draws = 0
     
-    # Create agent function for evaluation
-    def dqn_agent_func(observation, configuration):
-        board = observation.board
-        mark = observation.mark
-        action = agent.select_action(board, mark, epsilon=0.0)  # Greedy policy
-        return int(action)
-    
-    # Create environment
-    env = make("connectx", debug=False)
-    
     for game in range(num_games):
+        # Initialize board
+        board = [0] * (config.ROWS * config.COLUMNS)
+        
         # Alternate starting player
         if game % 2 == 0:
-            agents = [dqn_agent_func, opponent_agent]
-            agent_position = 0
+            agent_mark = 1
+            opponent_mark = 2
+            current_mark = 1
         else:
-            agents = [opponent_agent, dqn_agent_func]
-            agent_position = 1
+            agent_mark = 2
+            opponent_mark = 1
+            current_mark = 1
         
-        # Run game
-        env.reset()
-        result = env.run(agents)
-        
-        # Check result
-        final_state = result[-1]
-        
-        if final_state[agent_position]['status'] == 'DONE':
-            if final_state[agent_position]['reward'] == 1:
-                wins += 1
-            elif final_state[agent_position]['reward'] == 0:
+        # Play game
+        max_moves = config.ROWS * config.COLUMNS
+        for move_count in range(max_moves):
+            # Get valid moves
+            valid_moves = get_valid_moves(board)
+            if not valid_moves:
                 draws += 1
+                break
+            
+            # Select action
+            if current_mark == agent_mark:
+                # Agent's turn
+                action = agent.select_action(board, current_mark, epsilon=0.0)  # Greedy policy
             else:
-                losses += 1
-        else:
-            losses += 1
+                # Opponent's turn
+                if isinstance(opponent_agent, DQNAgent):
+                    action = opponent_agent.select_action(board, current_mark, epsilon=0.0)
+                else:
+                    # Assume opponent_agent is a function that takes (board, mark)
+                    action = opponent_agent(board, current_mark)
+            
+            # Validate action
+            if action not in valid_moves:
+                # Invalid move loses
+                if current_mark == agent_mark:
+                    losses += 1
+                else:
+                    wins += 1
+                break
+            
+            # Make move
+            board = make_move(board, action, current_mark)
+            
+            # Check terminal state
+            is_term, winner = is_terminal(board)
+            if is_term:
+                if winner == agent_mark:
+                    wins += 1
+                elif winner == opponent_mark:
+                    losses += 1
+                else:
+                    draws += 1
+                break
+            
+            # Switch player
+            current_mark = 3 - current_mark
     
     win_rate = wins / num_games
     loss_rate = losses / num_games

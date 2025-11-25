@@ -366,6 +366,72 @@ def detect_threats(board: List[int], mark: int) -> List[Tuple[int, int, str]]:
     return threats
 
 
+def count_immediate_wins(board: List[int], mark: int) -> List[int]:
+    """
+    Return list of columns that win immediately for the given mark.
+    
+    Args:
+        board: Current board state
+        mark: Player's mark to check for immediate wins
+    
+    Returns:
+        List of column indices that result in immediate win
+    """
+    winning_cols = []
+    for col in get_valid_moves(board):
+        next_board = make_move(board, col, mark)
+        if check_winner(next_board, mark):
+            winning_cols.append(col)
+    return winning_cols
+
+
+def find_two_threat_blocking_move(board: List[int], mark: int) -> Optional[int]:
+    """
+    Block opponent moves that create two immediate winning threats (forks).
+    
+    Args:
+        board: Current board state
+        mark: Current player's mark
+    
+    Returns:
+        Column index to block fork, or None if no fork threat exists
+    """
+    opponent_mark = 3 - mark
+    valid_moves = get_valid_moves(board)
+    
+    for col in valid_moves:
+        # If opponent plays here and creates two winning options, occupy it now
+        opponent_board = make_move(board, col, opponent_mark)
+        winning_cols = count_immediate_wins(opponent_board, opponent_mark)
+        if len(winning_cols) >= 2:
+            return col
+    
+    return None
+
+
+def find_safe_moves(board: List[int], mark: int) -> List[int]:
+    """
+    Find moves that do not allow an immediate opponent win next turn.
+    
+    Args:
+        board: Current board state
+        mark: Current player's mark
+    
+    Returns:
+        List of safe column indices
+    """
+    opponent_mark = 3 - mark
+    safe_moves = []
+    
+    for col in get_valid_moves(board):
+        next_board = make_move(board, col, mark)
+        opponent_wins = count_immediate_wins(next_board, opponent_mark)
+        if not opponent_wins:
+            safe_moves.append(col)
+    
+    return safe_moves
+
+
 def find_threat_blocking_move(board: List[int], mark: int) -> Optional[int]:
     """
     Find a move that blocks opponent's 3-in-a-row threat.

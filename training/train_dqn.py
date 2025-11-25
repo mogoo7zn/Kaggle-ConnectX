@@ -17,6 +17,7 @@ from collections import deque
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 
+import torch
 from config import config
 from dqn_agent import DQNAgent, evaluate_agent
 from torch.utils.tensorboard import SummaryWriter
@@ -170,8 +171,28 @@ class OpponentSampler:
     def _load_checkpoint_policy(self, path: str) -> Callable[[List[int], int], int]:
         if path not in self.cached_agents:
             opponent_agent = DQNAgent(model_type='standard', use_double_dqn=True)
-            opponent_agent.load_model(path)
-            opponent_agent.epsilon = 0.0
+            
+            # Try to load as checkpoint first, fall back to model weights
+            try:
+                checkpoint_data = torch.load(path, map_location=opponent_agent.device, weights_only=False)
+                
+                # Check if it's a full checkpoint or just model weights
+                if isinstance(checkpoint_data, dict) and 'policy_net_state_dict' in checkpoint_data:
+                    # Full checkpoint format
+                    opponent_agent.policy_net.load_state_dict(checkpoint_data['policy_net_state_dict'])
+                    opponent_agent.target_net.load_state_dict(checkpoint_data['target_net_state_dict'])
+                else:
+                    # Just model weights format
+                    opponent_agent.policy_net.load_state_dict(checkpoint_data)
+                    
+                opponent_agent.policy_net.eval()
+                opponent_agent.epsilon = 0.0
+                    
+            except Exception as e:
+                print(f"Warning: Failed to load checkpoint from {path}: {e}")
+                print("Skipping this checkpoint...")
+                # Return a random policy as fallback
+                return random_bot_policy
 
             def policy(board: List[int], mark: int) -> int:
                 return opponent_agent.select_action(board, mark, epsilon=0.0)
@@ -259,8 +280,16 @@ def get_policy_from_name(name: str) -> Callable[[List[int], int], int]:
 def policy_to_env_bot(policy: Callable[[List[int], int], int]) -> Callable:
     """Wrap a board/mark policy into a Kaggle-environment compatible callable."""
 
-    def bot_fn(observation, configuration):
-        return int(policy(observation.board, observation.mark))
+    def bot_fn(observation, configuration=None):
+        # Handle both direct call format (board, mark) and Kaggle env format (observation obj)
+        if isinstance(observation, list):
+            # Direct call: bot_fn(board, mark)
+            board = observation
+            mark = configuration
+            return int(policy(board, mark))
+        else:
+            # Kaggle environment format: observation has .board and .mark attributes
+            return int(policy(observation.board, observation.mark))
 
     return bot_fn
 
@@ -564,7 +593,7 @@ def play_opponent_episode(agent: DQNAgent,
 
 def train_agent(agent: DQNAgent,
                 mode: str = 'self_play',
-                num_episodes: int = 5000,
+                num_episodes: int = 10000,
                 eval_interval: int = 100,
                 save_interval: int = 500,
                 opponent_type: str = 'random',

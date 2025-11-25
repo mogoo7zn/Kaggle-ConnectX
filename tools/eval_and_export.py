@@ -63,7 +63,7 @@ def load_agent_from_path(path: Path, device: torch.device) -> Tuple[DQNAgent, Di
     config.DEVICE = device  # type: ignore[attr-defined]
     agent = DQNAgent(model_type="standard", use_double_dqn=True)
     agent.device = device
-    checkpoint = torch.load(path, map_location=device)
+    checkpoint = torch.load(path, map_location=device, weights_only=False)
     metadata: Dict = {}
 
     if isinstance(checkpoint, dict) and "policy_net_state_dict" in checkpoint:
