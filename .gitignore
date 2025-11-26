@@ -1,278 +1,45 @@
-# ============================================
 # Python
-# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
-# Virtual Environments
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Virtual Environment
 .venv/
-conda/
-.conda/
+env/
+ENV/
 
-# ============================================
-# PyTorch / Machine Learning
-# ============================================
-# Model files (ignore all, then selectively keep what's needed)
+# Outputs
+outputs/
+!outputs/.gitkeep
+
+# Experiments
+experiments/*
+!experiments/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Models (large files)
 *.pth
 *.pt
-*.pkl
-*.h5
-*.ckpt
-*.pb
 *.onnx
-*.tflite
+**/models/
+**/logs/
+**/checkpoints/
 
-# Keep specific model files for submission
-!submission/best_model.pth
-
-# Training artifacts
-models/
-checkpoints/
-*.pth.tar
-*.pt.tar
-
-# ============================================
-# Logs and Data
-# ============================================
-logs/
-*.log
-*.log.*
-*.out
-*.err
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-*.csv
-!requirements.txt
-
-# Training logs specifically
-logs/*.json
-logs/*.txt
-logs/*.log
-
-# ============================================
-# Visualizations and Plots
-# ============================================
-plots/
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
-*.pdf
-!README.md
-!*.md
-
-# Keep documentation images if needed
-# !docs/**/*.png
-# !docs/**/*.jpg
-
-# ============================================
-# Jupyter Notebooks
-# ============================================
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-# Uncomment if you want to ignore notebooks
-# *.ipynb
-
-# ============================================
-# IDEs and Editors
-# ============================================
-# VSCode
-.vscode/
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
-
-# PyCharm / IntelliJ
-.idea/
-*.iml
-*.iws
-*.ipr
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Vim
-*.swp
-*.swo
-*~
-*.swm
-*.swn
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# ============================================
-# OS Files
-# ============================================
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# Windows
-Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnk
-
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
-.nfs*
-
-# ============================================
-# Project Specific
-# ============================================
-# Archive directory (contains old checkpoints and logs)
-archive/
-
-# Submission files
-submission/submission.zip
-submission/*.zip
-submission/__pycache__/
-submission/*.pyc
-submission/*.pyo
-
-# Embedded model weights
-tools/model_weights_embedded.txt
-tools/*.txt
-!tools/README.md
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-*.old
-*.orig
-*.save
-*.swp
-*.swo
-
-# Compressed files
-*.zip
-*.tar
-*.tar.gz
-*.tgz
-*.rar
-*.7z
-*.gz
-
-# ============================================
-# Environment and Secrets
-# ============================================
-.env
-.env.local
-.env.*.local
-*.env
-secrets/
-*.key
-*.pem
-*.cert
-config.ini
-secrets.json
-
-# ============================================
-# Testing and Coverage
-# ============================================
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.nox/
-.hypothesis/
-*.cover
-*.py,cover
-.cache
-nosetests.xml
-coverage.xml
-*.xml
-!pom.xml
-
-# ============================================
-# Type Checking
-# ============================================
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-
-# ============================================
-# Profiling
-# ============================================
-.profiling/
-*.prof
-*.lprof
-
-# ============================================
-# Kaggle Specific
-# ============================================
-kaggle.json
-*.kaggle
-
+*.pth
