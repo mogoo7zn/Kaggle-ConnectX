@@ -1,87 +1,80 @@
-# ConnectX Dual-Agent Project
+# 📘 ConnectX Detailed Documentation
 
-This project implements two state-of-the-art reinforcement learning approaches for the Kaggle ConnectX competition:
-
-1. **Rainbow DQN** - Advanced value-based RL with 6 major improvements
-2. **AlphaZero** - MCTS + Deep Neural Networks with self-play
+This document provides details about the ConnectX Dual-Agent Project, including implementation specifics, configuration guides, and troubleshooting.
 
 ## 🎯 Project Goals
 
-- Compare two fundamentally different RL paradigms
-- Achieve superhuman performance on ConnectX
-- Provide comprehensive evaluation and analysis tools
+- **Compare Paradigms**: Contrast Value-Based (Rainbow DQN) vs Policy-Based (AlphaZero) RL.
+- **Superhuman Performance**: Train agents that surpass standard Minimax/Negamax baselines.
+- **Reusable Framework**: Create a modular system for future board game RL projects.
 
 ## 📁 Project Structure
 
+The project follows a modular architecture:
+
 ```
 connectX/
-├── core/                   # Shared utilities
-│   ├── config.py
-│   ├── utils.py
-│   ├── dqn_agent.py       # Original DQN (baseline)
-│   └── replay_buffer.py
+├── 📂 agents/               # Agent implementations
+│   ├── 📂 base/             # Shared utilities (Config, Utils)
+│   ├── 📂 dqn/              # Baseline DQN implementation
+│   ├── 📂 rainbow/          # Rainbow DQN (6 improvements)
+│   └── 📂 alphazero/        # AlphaZero (MCTS + ResNet)
 │
-├── rainbow/               # Rainbow DQN Implementation
-│   ├── rainbow_config.py
-│   ├── rainbow_model.py   # Dueling + Noisy Nets
-│   ├── prioritized_buffer.py
-│   ├── rainbow_agent.py
-│   └── train_rainbow.py
+├── 📂 evaluation/           # Unified Evaluation Framework
+│   ├── arena.py             # Head-to-head match engine
+│   ├── benchmark.py         # Standard opponent suite
+│   └── compare.py           # Comparison and visualization
 │
-├── alphazero/            # AlphaZero Implementation
-│   ├── az_config.py
-│   ├── mcts.py           # Monte Carlo Tree Search
-│   ├── az_model.py       # Policy-Value Network
-│   ├── self_play.py      # Self-play engine
-│   └── train_alphazero.py
+├── 📂 tools/                # Utility scripts
+│   ├── prepare_submission.py # Kaggle submission packager
+│   └── visualize.py         # Training visualization
 │
-├── evaluation/           # Unified Evaluation Framework
-│   ├── arena.py          # Head-to-head matches
-│   ├── benchmark.py      # Standard opponent suite
-│   └── compare.py        # Comparison and visualization
+├── 📂 outputs/              # Training artifacts
+│   ├── checkpoints/         # Model checkpoints
+│   ├── logs/                # TensorBoard logs
+│   ├── models/              # Final models
+│   └── plots/               # Generated charts
 │
-├── experiments/          # Experimental results
-├── submission/           # Kaggle submission files
-├── tools/                # Utility scripts
-└── run_full_experiment.py  # Main experimental pipeline
+├── 📂 docs/                 # Documentation
+└── 📂 submission/           # Kaggle submission files
 ```
 
-## 🚀 Quick Start
+## 🚀 Extended Quick Start
 
 ### 1. Installation
 
 ```bash
-pip install torch numpy matplotlib tensorboard
+pip install -r requirements.txt
 ```
 
 ### 2. Run Full Experiment
 
 ```bash
-# Full training (may take hours/days)
-python run_full_experiment.py
+# Full training pipeline
+python run_experiment.py
 
-# Quick test mode
-python run_full_experiment.py --quick
+# Quick test mode (fast verification)
+python run_experiment.py --quick
 ```
 
 ### 3. Train Individual Agents
 
 **Rainbow DQN:**
+
 ```bash
-cd rainbow
-python train_rainbow.py
+python -m agents.rainbow.train_rainbow
 ```
 
 **AlphaZero:**
+
 ```bash
-cd alphazero
-python train_alphazero.py
+python -m agents.alphazero.train_alphazero
 ```
 
 ### 4. Evaluate and Compare
 
 ```bash
-# Run benchmark
+# Run benchmark suite
 python -m evaluation.benchmark
 
 # Generate comparison report
@@ -92,218 +85,104 @@ python -m evaluation.compare
 
 ```bash
 # Rainbow DQN
-python tools/prepare_kaggle_submission.py \
+python tools/prepare_submission.py \
     --agent rainbow \
-    --model-path rainbow/checkpoints/best_rainbow_*.pth \
-    --output submission/rainbow_agent.py
+    --model-path outputs/models/rainbow/best_model.pth
 
 # AlphaZero
-python tools/prepare_kaggle_submission.py \
+python tools/prepare_submission.py \
     --agent alphazero \
-    --model-path alphazero/checkpoints/best_alphazero_*.pth \
-    --output submission/alphazero_agent.py \
-    --mcts-sims 100
+    --model-path outputs/models/alphazero/best_model.pth
 ```
 
-## 📊 Key Features
+## 📊 Key Features & Implementation
 
-### Rainbow DQN
+### 🌈 Rainbow DQN
 
-✅ **Double DQN** - Reduces overestimation bias  
-✅ **Prioritized Experience Replay** - Learns from important transitions  
-✅ **Dueling Networks** - Separates value and advantage  
-✅ **Multi-step Learning** - Better credit assignment (n=3)  
-✅ **Noisy Nets** - Learnable exploration  
-✅ **Distributional RL (C51)** - Optional full Rainbow
+Rainbow combines six extensions to the original DQN algorithm:
 
-**Expected Performance:**
-- vs Random: 95%+ win rate
-- vs Negamax(depth=4): 70%+ win rate
-- vs Negamax(depth=6): 50%+ win rate
-- Training time: 2-3 days (single GPU)
+1.  **Double DQN**: Decouples selection from evaluation to reduce overestimation bias.
+2.  **Prioritized Experience Replay (PER)**: Samples important transitions more frequently.
+3.  **Dueling Networks**: Uses two streams (Value and Advantage) to estimate Q-values.
+4.  **Multi-step Learning**: Uses n-step returns to propagate rewards faster.
+5.  **Noisy Nets**: Adds parametric noise to weights for better exploration.
+6.  **Distributional RL (C51)**: Models the distribution of returns instead of just the mean (Optional).
 
-### AlphaZero
-
-✅ **Monte Carlo Tree Search** - Planning with UCB formula  
-✅ **Policy-Value Network** - ResNet-style dual-head  
-✅ **Self-Play** - Learns from playing against itself  
-✅ **Data Augmentation** - Horizontal board flips  
-✅ **Iterative Improvement** - Only keeps better models
-
-**Expected Performance:**
-- vs Random: 99%+ win rate
-- vs Negamax(depth=6): 80%+ win rate
-- vs Negamax(depth=8): 60%+ win rate
-- Training time: 5-7 days (single GPU)
-
-## 🔬 Evaluation Framework
-
-### Standard Opponents
-
-- **Random** - Baseline (ELO ~800)
-- **Center Preference** - Simple heuristic (ELO ~1000)
-- **Negamax Depth 4** - Minimax search (ELO ~1400)
-- **Negamax Depth 6** - Stronger search (ELO ~1600)
-- **Negamax Depth 8** - Very strong (ELO ~1800)
-
-### Metrics
-
-- Win/Loss/Draw rates
-- Average decision time
-- Average game length
-- Estimated ELO rating
-
-### Outputs
-
-- JSON benchmark results
-- Comparison charts (bar, radar, ELO)
-- HTML interactive report
-
-## ⚙️ Configuration
-
-### Rainbow DQN (`rainbow/rainbow_config.py`)
+**Configuration (`agents/rainbow/rainbow_config.py`):**
 
 ```python
-# Key hyperparameters
 LEARNING_RATE = 1e-4
 BATCH_SIZE = 256
 GAMMA = 0.99
 PER_ALPHA = 0.6
 N_STEP = 3
-NUM_RES_BLOCKS = 10
 ```
 
-### AlphaZero (`alphazero/az_config.py`)
+### 🤖 AlphaZero
+
+AlphaZero uses a generalized iteration algorithm:
+
+1.  **MCTS**: Uses Monte Carlo Tree Search for lookahead planning based on the current policy.
+2.  **Policy-Value Network**: A residual network that outputs move probabilities ($p$) and position value ($v$).
+3.  **Self-Play**: The agent plays against itself to generate training data $(s, \pi, z)$.
+4.  **Symmetry**: Exploits the board's horizontal symmetry to double the training data.
+
+**Configuration (`agents/alphazero/az_config.py`):**
 
 ```python
-# Key hyperparameters
 NUM_SIMULATIONS = 800
 C_PUCT = 1.5
 LEARNING_RATE = 0.01
 NUM_SELFPLAY_GAMES = 500
-NUM_RES_BLOCKS = 10
 ```
 
-## 📈 Monitoring Training
+## 🔬 Evaluation Framework
 
-### TensorBoard
+### Standard Opponents
+
+The benchmark suite tests agents against:
+
+- **Random**: Baseline (ELO ~800)
+- **Negamax (Depth 2)**: Weak lookahead (ELO ~1200)
+- **Negamax (Depth 4)**: Medium lookahead (ELO ~1400)
+- **Negamax (Depth 6)**: Strong lookahead (ELO ~1600)
+
+### Metrics
+
+- **Win Rate**: Percentage of games won.
+- **ELO Rating**: Estimated relative skill level.
+- **Decision Time**: Average time per move.
+
+## 📈 Monitoring
+
+Use TensorBoard to monitor training progress:
 
 ```bash
-# Rainbow
-tensorboard --logdir rainbow/logs/runs
-
-# AlphaZero
-tensorboard --logdir alphazero/logs/runs
+tensorboard --logdir outputs/logs
 ```
 
-### Metrics to Watch
+**Metrics to Watch:**
 
-- **Loss**: Should decrease over time
-- **Win Rate**: Should increase during evaluation
-- **TD Error**: Indicates learning progress
-- **Q Values**: Should stabilize
-- **ELO Rating**: Tracks overall strength
-
-## 🎮 Testing Agents
-
-### Interactive Play
-
-```python
-from agents.rainbow.rainbow_agent import RainbowAgent
-from evaluation.arena import Arena
-
-agent = RainbowAgent()
-agent.load_model('rainbow/checkpoints/best_rainbow.pth')
-
-# Play against random
-arena = Arena()
-results = arena.play_match(
-    create_agent_wrapper(agent, 'rainbow'),
-    random_policy,
-    num_games=100
-)
-```
-
-### Benchmark
-
-```python
-from evaluation.benchmark import Benchmark
-
-benchmark = Benchmark()
-results = benchmark.run_benchmark(
-    agent_fn,
-    agent_name="MyAgent",
-    games_per_opponent=100
-)
-```
-
-## 🏆 Expected Results
-
-### Rainbow DQN
-
-| Opponent | Win Rate | ELO |
-|----------|----------|-----|
-| Random | 95% | ~1500 |
-| Center | 85% | ~1500 |
-| Negamax-4 | 70% | ~1600 |
-| Negamax-6 | 50% | ~1650 |
-
-### AlphaZero
-
-| Opponent | Win Rate | ELO |
-|----------|----------|-----|
-| Random | 99% | ~1800 |
-| Center | 95% | ~1800 |
-| Negamax-4 | 90% | ~1850 |
-| Negamax-6 | 80% | ~1900 |
-| Negamax-8 | 60% | ~1950 |
+- **Rainbow**: `loss`, `avg_q_value`, `epsilon` (if not noisy).
+- **AlphaZero**: `policy_loss`, `value_loss`, `total_loss`.
 
 ## 🐛 Troubleshooting
 
-### Training Issues
+### Common Issues
 
-**Problem: Training very slow**
-- Solution: Reduce episodes in config, use GPU, decrease batch size
+**Problem: Training is too slow.**
 
-**Problem: Model not improving**
-- Solution: Check learning rate, increase epsilon decay, verify reward function
+- **Fix**: Reduce `BATCH_SIZE`, use a GPU, or reduce `NUM_SIMULATIONS` (for AlphaZero).
 
-**Problem: Out of memory**
-- Solution: Reduce batch size, decrease model size, use smaller replay buffer
+**Problem: Agent plays invalid moves.**
 
-### Submission Issues
+- **Fix**: Ensure the action mask is correctly applied in the model output.
 
-**Problem: File too large**
-- Solution: Use lighter model architecture, quantize weights
+**Problem: Kaggle Submission Timeout.**
 
-**Problem: Timeout on Kaggle**
-- Solution: Reduce MCTS simulations, use faster inference, optimize code
+- **Fix**: For AlphaZero, reduce MCTS simulations during inference. For Rainbow, ensure the model isn't too deep.
 
 ## 📚 References
 
-### Rainbow DQN
-- [Rainbow Paper](https://arxiv.org/abs/1710.02298)
-- [Prioritized Experience Replay](https://arxiv.org/abs/1511.05952)
-- [Dueling Networks](https://arxiv.org/abs/1511.06581)
-
-### AlphaZero
-- [AlphaZero Paper](https://arxiv.org/abs/1712.01815)
-- [AlphaGo Zero](https://www.nature.com/articles/nature24270)
-- [MCTS Tutorial](https://web.stanford.edu/class/cs234/slides/lecture13.pdf)
-
-## 📝 License
-
-MIT License - See LICENSE file for details
-
-## 🤝 Contributing
-
-Contributions welcome! Please see CONTRIBUTING.md for guidelines.
-
-## 📧 Contact
-
-For questions or issues, please open a GitHub issue.
-
----
-
-**Happy Training! 🚀**
-
+- [Rainbow: Combining Improvements in Deep Reinforcement Learning](https://arxiv.org/abs/1710.02298)
+- [Mastering the Game of Go without Human Knowledge (AlphaZero)](https://nature.com/articles/nature24270)

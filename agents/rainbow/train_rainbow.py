@@ -13,6 +13,9 @@ import time
 from datetime import datetime
 from typing import Dict, Tuple
 from collections import deque
+import logging
+from logging.handlers import RotatingFileHandler
+import sys
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -57,6 +60,62 @@ class RainbowTrainer:
         # Recent stats for moving average (保持向后兼容)
         self.recent_rewards = deque(maxlen=100)
         self.recent_lengths = deque(maxlen=100)
+        
+        # 设置详细日志记录
+        self._setup_logging()
+    
+    def _setup_logging(self):
+        """设置详细的日志记录"""
+        # 创建日志文件路径
+        log_file = os.path.join(rainbow_config.LOG_DIR, f"training_{self.run_name}.log")
+        
+        # 配置日志格式
+        log_format = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # 创建logger
+        self.logger = logging.getLogger(f'Rainbow_{self.run_name}')
+        self.logger.setLevel(logging.DEBUG)
+        
+        # 避免重复添加handler
+        if not self.logger.handlers:
+            # 文件handler (带轮转，最大10MB，保留5个备份)
+            file_handler = RotatingFileHandler(
+                log_file, 
+                maxBytes=10*1024*1024, 
+                backupCount=5,
+                encoding='utf-8'
+            )
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(log_format)
+            
+            # 控制台handler (只显示INFO及以上级别)
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setLevel(logging.INFO)
+            console_handler.setFormatter(log_format)
+            
+            self.logger.addHandler(file_handler)
+            self.logger.addHandler(console_handler)
+        
+        # 记录训练开始信息
+        self.logger.info("="*70)
+        self.logger.info("Rainbow DQN训练开始")
+        self.logger.info("="*70)
+        self.logger.info(f"运行名称: {self.run_name}")
+        self.logger.info(f"设备: {rainbow_config.DEVICE}")
+        self.logger.info(f"配置: {rainbow_config}")
+        self.logger.info(f"使用PER: {rainbow_config.USE_PER}")
+        self.logger.info(f"使用Noisy Nets: {rainbow_config.USE_NOISY_NETS}")
+        self.logger.info(f"使用Multi-step: {rainbow_config.USE_MULTI_STEP}")
+        self.logger.info(f"使用Distributional: {rainbow_config.USE_DISTRIBUTIONAL}")
+        self.logger.info(f"学习率: {rainbow_config.LEARNING_RATE}")
+        self.logger.info(f"批大小: {rainbow_config.BATCH_SIZE}")
+        self.logger.info(f"Gamma: {rainbow_config.GAMMA}")
+        self.logger.info(f"缓冲区大小: {rainbow_config.REPLAY_BUFFER_SIZE}")
+        self.logger.info(f"日志文件: {log_file}")
+        self.logger.info("="*70)
     
     def play_self_play_episode(self) -> Tuple[float, int]:
         """
@@ -202,6 +261,13 @@ class RainbowTrainer:
         print(f"Device: {rainbow_config.DEVICE}")
         print(f"{'='*60}\n")
         
+        self.logger.info("="*70)
+        self.logger.info(f"开始Rainbow DQN训练: {mode} 模式")
+        self.logger.info(f"训练回合数: {num_episodes}")
+        self.logger.info(f"评估间隔: {eval_interval}")
+        self.logger.info(f"保存间隔: {save_interval}")
+        self.logger.info("="*70)
+        
         best_win_rate = 0.0
         start_time = time.time()
         
@@ -251,9 +317,22 @@ class RainbowTrainer:
                       f"Length: {length:3d} | "
                       f"Epsilon: {self.agent.epsilon:.4f} | "
                       f"Buffer: {len(self.agent.memory):6d}")
+                
+                # 详细日志记录
+                self.logger.info(f"[Episode {episode}] 奖励: {reward:.4f}, 平均奖励: {avg_reward:.4f}, "
+                               f"回合长度: {length}, Epsilon: {self.agent.epsilon:.6f}, "
+                               f"缓冲区: {len(self.agent.memory)}")
+                
+                if train_stats:
+                    avg_loss = np.mean([s['loss'] for s in train_stats])
+                    avg_td_error = np.mean([s['td_error_mean'] for s in train_stats])
+                    avg_q_mean = np.mean([s['q_mean'] for s in train_stats])
+                    self.logger.debug(f"  平均损失: {avg_loss:.6f}, TD误差: {avg_td_error:.6f}, "
+                                    f"Q值均值: {avg_q_mean:.6f}")
             
             # Evaluation
             if episode % eval_interval == 0:
+                self.logger.info(f"[评估] 开始评估 (Episode {episode})")
                 win_rate = self.evaluate()
                 self.metrics.add_evaluation(episode, win_rate)
                 self.writer.add_scalar('eval/win_rate', win_rate, episode)
@@ -262,11 +341,16 @@ class RainbowTrainer:
                 print(f"Evaluation at episode {episode}: Win rate = {win_rate:.2%}")
                 print(f"{'='*60}\n")
                 
+                self.logger.info(f"[评估结果] Episode {episode}: 胜率 = {win_rate:.2%}")
+                self.logger.info(f"  之前最佳胜率: {best_win_rate:.2%}")
+                
                 if win_rate > best_win_rate:
                     best_win_rate = win_rate
                     model_path = os.path.join(rainbow_config.CHECKPOINT_DIR,
                                             f'best_rainbow_{self.run_name}.pth')
                     self.agent.save_model(model_path)
+                    self.logger.info(f"[新最佳模型!] 胜率提升至: {win_rate:.2%}")
+                    self.logger.info(f"  模型已保存至: {model_path}")
             
             # Save checkpoint
             if episode % save_interval == 0:
@@ -274,6 +358,7 @@ class RainbowTrainer:
                                              f'rainbow_ep{episode}_{self.run_name}.pth')
                 self.agent.save_checkpoint(checkpoint_path, episode,
                                           {'win_rate': best_win_rate})
+                self.logger.info(f"[检查点] 已保存Episode {episode}的检查点: {checkpoint_path}")
         
         # Final statistics
         total_time = time.time() - start_time
@@ -283,18 +368,36 @@ class RainbowTrainer:
         print(f"Best win rate: {best_win_rate:.2%}")
         print(f"{'='*60}\n")
         
+        self.logger.info("="*70)
+        self.logger.info("训练完成")
+        self.logger.info("="*70)
+        self.logger.info(f"总训练回合数: {num_episodes}")
+        self.logger.info(f"总训练时间: {total_time/60:.2f} 分钟 ({total_time:.2f} 秒)")
+        self.logger.info(f"平均每回合时间: {total_time/num_episodes:.3f} 秒")
+        self.logger.info(f"最佳胜率: {best_win_rate:.2%}")
+        self.logger.info(f"最终缓冲区大小: {len(self.agent.memory)}")
+        self.logger.info(f"最终Epsilon: {self.agent.epsilon:.6f}")
+        self.logger.info("="*70)
+        
         # Save final model
         final_path = os.path.join(rainbow_config.MODEL_DIR,
                                   f'final_rainbow_{self.run_name}.pth')
         self.agent.save_model(final_path)
+        self.logger.info(f"[最终模型] 已保存至: {final_path}")
         
         # 生成训练图像
         plot_path = os.path.join(rainbow_config.PLOT_DIR, 
                                 f'training_metrics_{self.run_name}.png')
         plot_rainbow_training_metrics(self.metrics, save_path=plot_path, show=False,
                                      title=f'Rainbow DQN Training Metrics - {self.run_name}')
+        self.logger.info(f"[训练曲线] 已保存至: {plot_path}")
         
         self.writer.close()
+        
+        # 关闭日志handler
+        for handler in self.logger.handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
     
     def evaluate(self, num_games: int = 100) -> float:
         """

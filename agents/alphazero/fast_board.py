@@ -110,7 +110,7 @@ class FastBoard:
     
     def make_move_inplace(self, col: int, mark: int):
         """Make a move in place (mutates board)."""
-        row = self.heights[col]
+        row = int(self.heights[col])  # Convert from numpy int8 to Python int
         bit_pos = row * COLS + col
         
         if mark == 1:
@@ -124,7 +124,7 @@ class FastBoard:
     def undo_move(self, col: int, mark: int):
         """Undo a move (for MCTS backtracking)."""
         self.heights[col] -= 1
-        row = self.heights[col]
+        row = int(self.heights[col])  # Convert from numpy int8 to Python int
         bit_pos = row * COLS + col
         
         if mark == 1:
@@ -136,7 +136,7 @@ class FastBoard:
     
     def check_win(self, mark: int) -> bool:
         """Check if the given player has won using bitboard."""
-        bits = self.p1_bits if mark == 1 else self.p2_bits
+        bits = int(self.p1_bits if mark == 1 else self.p2_bits)
         
         for mask in WIN_MASKS:
             if (bits & mask) == mask:
@@ -147,8 +147,8 @@ class FastBoard:
         """
         Fast win check after a move - only check patterns involving the last move.
         """
-        bits = self.p1_bits if mark == 1 else self.p2_bits
-        last_row = self.heights[last_col] - 1
+        bits = int(self.p1_bits if mark == 1 else self.p2_bits)
+        last_row = int(self.heights[last_col]) - 1
         
         # Check horizontal
         count = 1
@@ -240,23 +240,29 @@ class FastBoard:
     
     def to_list(self) -> List[int]:
         """Convert to list format (for compatibility)."""
+        p1_bits = int(self.p1_bits)
+        p2_bits = int(self.p2_bits)
         board = [0] * (ROWS * COLS)
         for i in range(ROWS * COLS):
-            if self.p1_bits & (1 << i):
+            bit_mask = 1 << i
+            if p1_bits & bit_mask:
                 board[i] = 1
-            elif self.p2_bits & (1 << i):
+            elif p2_bits & bit_mask:
                 board[i] = 2
         return board
     
     def to_numpy(self) -> np.ndarray:
         """Convert to numpy array format."""
+        p1_bits = int(self.p1_bits)
+        p2_bits = int(self.p2_bits)
         board = np.zeros((ROWS, COLS), dtype=np.int8)
         for row in range(ROWS):
             for col in range(COLS):
                 bit_pos = row * COLS + col
-                if self.p1_bits & (1 << bit_pos):
+                bit_mask = 1 << bit_pos
+                if p1_bits & bit_mask:
                     board[row, col] = 1
-                elif self.p2_bits & (1 << bit_pos):
+                elif p2_bits & bit_mask:
                     board[row, col] = 2
         return board
     
@@ -290,23 +296,25 @@ class FastBoard:
         Returns:
             numpy array of shape (3, ROWS, COLS)
         """
-        opponent_mark = 3 - mark
+        # Ensure bits are Python ints for bitwise operations
+        p1_bits = int(self.p1_bits)
+        p2_bits = int(self.p2_bits)
         
-        # Use vectorized operations
         state = np.zeros((3, ROWS, COLS), dtype=np.float32)
         
         for row in range(ROWS):
             for col in range(COLS):
                 bit_pos = row * COLS + col
+                bit_mask = 1 << bit_pos
                 if mark == 1:
-                    if self.p1_bits & (1 << bit_pos):
+                    if p1_bits & bit_mask:
                         state[0, row, col] = 1.0
-                    elif self.p2_bits & (1 << bit_pos):
+                    elif p2_bits & bit_mask:
                         state[1, row, col] = 1.0
                 else:
-                    if self.p2_bits & (1 << bit_pos):
+                    if p2_bits & bit_mask:
                         state[0, row, col] = 1.0
-                    elif self.p1_bits & (1 << bit_pos):
+                    elif p1_bits & bit_mask:
                         state[1, row, col] = 1.0
         
         # Valid moves channel

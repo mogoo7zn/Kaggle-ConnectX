@@ -391,10 +391,28 @@ class HybridAgent:
         if blocking_move is not None:
             return blocking_move
 
+        # Rule 2.5: Block Open Three (Critical)
+        open_three = find_open_three_blocking_move(board, mark)
+        if open_three is not None:
+            # Check if blocking creates a losing situation (unlikely for open three block, but safe)
+            # Use find_safe_moves to validate
+            safe_check = find_safe_moves(board, mark)
+            if open_three in safe_check:
+                return open_three
+            elif not safe_check: # If no safe moves, we are dead anyway, just block
+                return open_three
+
         # Rule 3: Block opponent's two-threat traps (forks)
         fork_block = find_two_threat_blocking_move(board, mark)
         if fork_block is not None:
             return fork_block
+            
+        # Rule 3.5: Block Open Two (Preventative)
+        open_two = find_open_two_blocking_move(board, mark)
+        if open_two is not None:
+             safe_check = find_safe_moves(board, mark)
+             if open_two in safe_check:
+                 return open_two
 
         # Rule 4: Block opponent's 3-in-a-row threat
         threat_block = find_threat_blocking_move(board, mark)
