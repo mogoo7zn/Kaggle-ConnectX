@@ -5,13 +5,27 @@
 ## ⚡ 5分钟快速测试
 
 ```bash
-# 1. 确保已安装依赖
-pip install torch numpy matplotlib
+# 1. 使用自动化脚本设置环境（推荐）
+# Windows:
+scripts\setup_env.bat
 
-# 2. 快速测试（约5-10分钟）
+# Linux/Mac:
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+
+# 或手动安装依赖
+pip install -r requirements.txt
+
+# 2. 激活虚拟环境（如果使用自动化脚本）
+# Windows:
+venv\Scripts\activate.bat
+# Linux/Mac:
+source venv/bin/activate
+
+# 3. 快速测试（约5-10分钟）
 python run_full_experiment.py --quick
 
-# 3. 查看结果
+# 4. 查看结果
 ls experiments/comparison_*/comparison_report.html
 ```
 
@@ -19,12 +33,43 @@ ls experiments/comparison_*/comparison_report.html
 
 ### 步骤1：环境准备
 
+#### 方法A：自动化设置（推荐）
+
+**Windows:**
 ```bash
-# 检查Python版本 (需要3.7+)
+# 运行自动化脚本
+scripts\setup_env.bat
+```
+
+**Linux/Mac:**
+```bash
+# 添加执行权限并运行
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+```
+
+脚本会自动：
+- 检查 Python 版本（需要 3.8+）
+- 创建虚拟环境 `venv/`
+- 安装所有依赖（包括 PyTorch, NumPy, Matplotlib, Pygame, TensorBoard 等）
+
+#### 方法B：手动设置
+
+```bash
+# 检查Python版本 (需要3.8+)
 python --version
 
-# 安装核心依赖
-pip install torch numpy matplotlib tensorboard
+# 创建虚拟环境
+python -m venv venv
+
+# 激活虚拟环境
+# Windows:
+venv\Scripts\activate.bat
+# Linux/Mac:
+source venv/bin/activate
+
+# 安装所有依赖
+pip install -r requirements.txt
 
 # 可选：CUDA支持（GPU加速）
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118

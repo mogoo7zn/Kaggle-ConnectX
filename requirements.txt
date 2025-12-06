@@ -16,6 +16,9 @@ tqdm>=4.65.0
 # Optional: For TensorBoard integration
 tensorboard>=2.13.0
 
+# Game Interface (for playground)
+pygame>=2.5.0
+
 # Note: kaggle-environments is NOT required for training
 # It's only needed if you want to submit to Kaggle competitions
 # For Windows users, it's difficult to install due to C++ compilation requirements
