@@ -7,8 +7,8 @@
 ## 🎯 设计原则
 
 1. **模块化**: 每个组件职责清晰，独立可测
-2. **可扩展**: 易于添加新的agent实现
-3. **标准化**: 遵循Python包管理最佳实践
+2. **可扩展**: 易于添加新的 agent 实现
+3. **标准化**: 遵循 Python 包管理最佳实践
 4. **集中管理**: 输出和文档统一组织
 
 ## 📂 完整目录结构
@@ -54,6 +54,9 @@ connectX/
 │   ├── arena.py                     # 对战竞技场
 │   ├── benchmark.py                 # 基准测试
 │   └── compare.py                   # 性能对比
+│
+├── 📁 playground/                   # 交互式游戏界面
+│   └── play.py                      # PyGame 游戏主程序
 │
 ├── 📁 tools/                        # 工具脚本
 │   ├── __init__.py
@@ -120,36 +123,55 @@ connectX/
 **作用**: 包含所有强化学习智能体的实现
 
 **子目录**:
+
 - `base/`: 共享的基础组件（配置、工具函数）
-- `dqn/`: 基础DQN实现（baseline）
-- `rainbow/`: Rainbow DQN（6大改进）
+- `dqn/`: 基础 DQN 实现（baseline）
+- `rainbow/`: Rainbow DQN（6 大改进）
 - `alphazero/`: AlphaZero（MCTS + 神经网络）
 
 **特点**:
-- 每个agent独立目录
-- 共享组件在base/
-- 易于添加新agent
+
+- 每个 agent 独立目录
+- 共享组件在 base/
+- 易于添加新 agent
 
 ### evaluation/ - 评估框架
 
-**作用**: 统一的agent评估和对比工具
+**作用**: 统一的 agent 评估和对比工具
 
 **组件**:
+
 - `arena.py`: 公平的对战平台
 - `benchmark.py`: 标准化性能测试
-- `compare.py`: 多agent对比分析
+- `compare.py`: 多 agent 对比分析
 
 **特点**:
-- Agent无关的评估接口
+
+- Agent 无关的评估接口
 - 标准化的性能指标
 - 自动生成对比报告
+
+### playground/ - 交互式游戏界面
+
+**作用**: 提供图形化界面与 AI 对战
+
+**组件**:
+
+- `play.py`: 基于 PyGame 的交互式游戏程序
+
+**特点**:
+
+- 实时对战
+- 可视化棋盘
+- 支持加载训练好的模型
 
 ### tools/ - 工具脚本
 
 **作用**: 辅助开发和部署的工具
 
 **包含**:
-- Kaggle提交准备
+
+- Kaggle 提交准备
 - 训练可视化
 - 诊断工具
 
@@ -157,13 +179,15 @@ connectX/
 
 **作用**: 统一管理所有训练产生的文件
 
-**结构**: 按agent类型和输出类型组织
+**结构**: 按 agent 类型和输出类型组织
+
 - `checkpoints/`: 训练检查点
-- `logs/`: TensorBoard日志
+- `logs/`: TensorBoard 日志
 - `models/`: 最终训练模型
 - `plots/`: 训练曲线图表
 
 **优势**:
+
 - 集中管理
 - 易于清理
 - 便于备份
@@ -173,8 +197,9 @@ connectX/
 **作用**: 集中管理所有项目文档
 
 **包含**:
+
 - 用户指南
-- API文档
+- API 文档
 - 架构说明
 - 开发文档
 
@@ -186,7 +211,7 @@ connectX/
 
 ## 🚀 使用方法
 
-### 训练Agent
+### 训练 Agent
 
 ```bash
 # 使用模块方式
@@ -242,9 +267,9 @@ from evaluation.arena import Arena
 from evaluation.benchmark import Benchmark
 ```
 
-## 🔄 添加新Agent
+## 🔄 添加新 Agent
 
-添加新agent的标准流程：
+添加新 agent 的标准流程：
 
 ```bash
 # 1. 创建目录
@@ -300,11 +325,11 @@ git add run_experiment.py README.md requirements.txt
 
 ## 📊 文件统计
 
-- **Python文件**: ~35个
-- **配置文件**: 3个
-- **文档文件**: 8个
-- **测试文件**: 4个 (待完善)
-- **总代码行数**: ~7,500行
+- **Python 文件**: ~35 个
+- **配置文件**: 3 个
+- **文档文件**: 8 个
+- **测试文件**: 4 个 (待完善)
+- **总代码行数**: ~7,500 行
 
 ## ✅ 质量检查
 
@@ -354,5 +379,4 @@ pytest --cov=agents tests/
 
 **清晰的结构 = 高效的开发**
 
-*最后更新: 2025-11-25*
-
+_最后更新: 2025-11-25_

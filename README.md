@@ -22,6 +22,7 @@
     - [🏃 Run a Quick Experiment](#-run-a-quick-experiment)
     - [🏋️ Train Agents](#️-train-agents)
     - [⚔️ Evaluate](#️-evaluate)
+    - [🎮 Play](#-play)
   - [📚 Documentation](#-documentation)
   - [🏗️ Project Structure](#️-project-structure)
   - [📊 Performance](#-performance)
@@ -106,6 +107,14 @@ python -m evaluation.benchmark
 python -m evaluation.compare
 ```
 
+### 🎮 Play
+
+Play against the trained agent interactively:
+
+```bash
+python playground/play.py
+```
+
 ---
 
 ## 📚 Documentation
@@ -133,6 +142,7 @@ connectX/
 │   ├── 📂 rainbow/      # Rainbow DQN
 │   └── 📂 alphazero/    # AlphaZero
 ├── 📂 evaluation/       # Arena & Benchmarking tools
+├── 📂 playground/       # Interactive game interface
 ├── 📂 tools/            # Visualization & Submission scripts
 ├── 📂 outputs/          # Logs, Checkpoints, Models, Plots
 ├── 📂 docs/             # Documentation

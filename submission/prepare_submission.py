@@ -353,10 +353,12 @@ def find_open_three(board, mark):
     b = np.array(board).reshape(ROWS, COLUMNS)
     for r in range(ROWS):
         for c in range(COLUMNS - 4):
-            w = b[r, c:c+5]
-            if np.all(w == [0, op, op, op, 0]):
-                if (r == ROWS - 1) or (b[r+1, c] != 0): return c
-                if (r == ROWS - 1) or (b[r+1, c+4] != 0): return c + 4
+            if np.all(b[r, c:c+5] == [0, op, op, op, 0]):
+                cands = []
+                if (r == ROWS - 1) or (b[r+1, c] != 0): cands.append(c)
+                if (r == ROWS - 1) or (b[r+1, c+4] != 0): cands.append(c+4)
+                for cand in cands:
+                    if not is_losing_move(board, cand, mark): return cand
     return None
 
 
@@ -365,10 +367,12 @@ def find_open_two(board, mark):
     b = np.array(board).reshape(ROWS, COLUMNS)
     for r in range(ROWS):
         for c in range(COLUMNS - 3):
-            w = b[r, c:c+4]
-            if np.all(w == [0, op, op, 0]):
-                if (r == ROWS - 1) or (b[r+1, c] != 0): return c
-                if (r == ROWS - 1) or (b[r+1, c+3] != 0): return c + 3
+            if np.all(b[r, c:c+4] == [0, op, op, 0]):
+                cands = []
+                if (r == ROWS - 1) or (b[r+1, c] != 0): cands.append(c)
+                if (r == ROWS - 1) or (b[r+1, c+3] != 0): cands.append(c+3)
+                for cand in cands:
+                    if not is_losing_move(board, cand, mark): return cand
     return None
 
 

@@ -157,31 +157,34 @@ def block_double_threat(board: List[int], mark: int) -> Optional[int]:
 def find_open_three_blocking_move(board: List[int], mark: int) -> Optional[int]:
     """
     Block opponent's open three (0 X X X 0) horizontally.
-    This pattern is dangerous because if unblocked, the opponent can win on the next turn 
-    by playing on one side, forcing a block, and winning on the other.
+    Check both sides for safety.
     """
     opponent = 3 - mark
     board_2d = np.array(board).reshape(config.ROWS, config.COLUMNS)
     
-    # Horizontal 0 O O O 0
     for r in range(config.ROWS):
         for c in range(config.COLUMNS - 4):
             # Window of 5: [0, op, op, op, 0]
             window = board_2d[r, c:c+5]
             if np.all(window == [0, opponent, opponent, opponent, 0]):
+                candidates = []
                 # Check left side (c)
                 if (r == config.ROWS - 1) or (board_2d[r+1, c] != 0):
-                     return c
+                    candidates.append(c)
                 # Check right side (c+4)
                 if (r == config.ROWS - 1) or (board_2d[r+1, c+4] != 0):
-                     return c + 4
+                    candidates.append(c+4)
+                
+                for cand in candidates:
+                    if not is_losing_move(board, cand, mark):
+                        return cand
     return None
 
 
 def find_open_two_blocking_move(board: List[int], mark: int) -> Optional[int]:
     """
     Block opponent's open two (0 X X 0) horizontally.
-    Blocking this prevents the opponent from creating an open three.
+    Check both sides for safety.
     """
     opponent = 3 - mark
     board_2d = np.array(board).reshape(config.ROWS, config.COLUMNS)
@@ -191,10 +194,17 @@ def find_open_two_blocking_move(board: List[int], mark: int) -> Optional[int]:
             # Window of 4: [0, op, op, 0]
             window = board_2d[r, c:c+4]
             if np.all(window == [0, opponent, opponent, 0]):
-                 if (r == config.ROWS - 1) or (board_2d[r+1, c] != 0):
-                     return c
-                 if (r == config.ROWS - 1) or (board_2d[r+1, c+3] != 0):
-                     return c + 3
+                candidates = []
+                # Check left side (c)
+                if (r == config.ROWS - 1) or (board_2d[r+1, c] != 0):
+                    candidates.append(c)
+                # Check right side (c+3)
+                if (r == config.ROWS - 1) or (board_2d[r+1, c+3] != 0):
+                    candidates.append(c+3)
+                
+                for cand in candidates:
+                    if not is_losing_move(board, cand, mark):
+                        return cand
     return None
 
 
