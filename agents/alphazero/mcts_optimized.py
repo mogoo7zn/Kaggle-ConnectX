@@ -18,7 +18,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from agents.alphazero.az_config import az_config
+from agents.alphazero.az_config_strong import az_config_strong as az_config
 from agents.alphazero.fast_board import FastBoard, ROWS, COLS
 
 

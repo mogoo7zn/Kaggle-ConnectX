@@ -9,13 +9,87 @@ import math
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import agent and utils
+# Allow selection of agent via environment variable or try multiple options
+AGENT_MODULE = os.getenv('AGENT_MODULE', 'main')  # Can be 'main', 'main_alphazero', 'main_DQN', etc.
+
+print(f"Loading AI agent from submission.{AGENT_MODULE}...")
+print("(Note: main.py is very large and may take time to load)")
+print("(Set AGENT_MODULE environment variable to use a different agent, e.g., 'main_alphazero')")
+
+ai_agent = None
+agent_loaded = False
+
+# Try to load the specified agent
 try:
-    import submission.main as ai_agent
+    if AGENT_MODULE == 'main':
+        import submission.main as ai_agent
+    elif AGENT_MODULE == 'main_alphazero':
+        import submission.main_alphazero as ai_agent
+    elif AGENT_MODULE == 'main_DQN':
+        import submission.main_DQN as ai_agent
+    else:
+        # Try dynamic import
+        module_name = f"submission.{AGENT_MODULE}"
+        ai_agent = __import__(module_name, fromlist=[''])
+    
+    # Verify agent function exists
+    if not hasattr(ai_agent, 'agent'):
+        raise AttributeError(f"Module {AGENT_MODULE} does not have an 'agent' function")
+    
+    print(f"✓ AI agent loaded successfully from {AGENT_MODULE}")
+    agent_loaded = True
+    
+except ImportError as e:
+    print(f"✗ Error importing AI agent from {AGENT_MODULE}: {e}")
+    print("\nTrying fallback options...")
+    
+    # Try fallback options
+    fallback_modules = ['main_alphazero', 'main_DQN', 'main_backup']
+    for fallback in fallback_modules:
+        try:
+            print(f"  Trying {fallback}...")
+            if fallback == 'main_alphazero':
+                import submission.main_alphazero as ai_agent
+            elif fallback == 'main_DQN':
+                import submission.main_DQN as ai_agent
+            elif fallback == 'main_backup':
+                import submission.main_backup as ai_agent
+            
+            if hasattr(ai_agent, 'agent'):
+                print(f"  ✓ Successfully loaded {fallback}")
+                agent_loaded = True
+                break
+        except Exception as fallback_error:
+            print(f"  ✗ {fallback} failed: {fallback_error}")
+            continue
+    
+    if not agent_loaded:
+        print("\n✗ Could not load any AI agent module.")
+        print("Make sure you are running this from the playground directory or project root.")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+        
+except AttributeError as e:
+    print(f"✗ Agent module loaded but missing 'agent' function: {e}")
+    print(f"Available attributes: {[attr for attr in dir(ai_agent) if not attr.startswith('_')]}")
+    sys.exit(1)
+    
+except Exception as e:
+    print(f"✗ Error loading AI agent: {e}")
+    print("The agent file may be corrupted or incompatible.")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+
+try:
     from agents.base.config import config
     from agents.base import utils
+    print("✓ Game utilities loaded successfully")
 except ImportError as e:
-    print(f"Error importing modules: {e}")
-    print("Make sure you are running this from the playground directory or project root.")
+    print(f"✗ Error importing game utilities: {e}")
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 
 # Colors
@@ -170,8 +244,16 @@ class Connect4UI:
             col = ai_agent.agent(obs, conf)
             end_time = time.time()
             print(f"AI chose column {col} in {end_time - start_time:.4f}s")
+        except AttributeError as e:
+            print(f"AI Error: agent function not found - {e}")
+            print("Make sure submission/main.py has an 'agent' function defined.")
+            import traceback
+            traceback.print_exc()
+            col = 0 # Fallback
         except Exception as e:
             print(f"AI Error: {e}")
+            import traceback
+            traceback.print_exc()
             col = 0 # Fallback
             
         if utils.is_valid_move(self.board, col):

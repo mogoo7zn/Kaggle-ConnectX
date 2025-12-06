@@ -179,6 +179,13 @@ Detailed documentation is located in the `docs/` directory:
 | [**🚀 Quick Start Guide**](docs/QUICKSTART.md)        | Extended guide for setup and usage.                |
 | [**📖 Detailed Docs**](docs/README.md)                | Comprehensive documentation index.                 |
 
+> **中文文档**:
+>
+> - [**📂 项目结构**](docs/PROJECT_STRUCTURE_zh.md)
+> - [**🏗️ 架构说明**](docs/ARCHITECTURE_zh.md)
+> - [**🚀 快速开始**](docs/QUICKSTART_zh.md)
+> - [**📖 详细文档**](docs/README_zh.md)
+
 ---
 
 ## 🏗️ Project Structure

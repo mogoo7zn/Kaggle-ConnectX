@@ -4,9 +4,10 @@
 
 使用方法:
     python train_strong.py --config strong      # 推荐 (平衡速度和质量)
+    python train_strong.py --config strong+     # 强化+ (比strong强，模型<100MB可提交)
     python train_strong.py --config balanced    # 平衡版 (较快)
     python train_strong.py --config fast        # 快速版 (最快)
-    python train_strong.py --config ultra       # 极限版 (最强, 需要好GPU)
+    python train_strong.py --config ultra       # 极限版 (最强, 需要好GPU, 模型>100MB)
     
     # 从检查点继续训练
     python train_strong.py --checkpoint path/to/checkpoint.pth
@@ -38,7 +39,8 @@ from agents.alphazero.az_config_strong import (
     az_config_strong, 
     BalancedStrongConfig, 
     FastStrongConfig,
-    UltraStrongConfig
+    UltraStrongConfig,
+    StrongPlusConfig
 )
 from agents.alphazero.self_play_optimized import (
     ParallelSelfPlayEngine, SimpleSelfPlayEngine
@@ -545,6 +547,7 @@ class AlphaZeroStrongTrainer:
             f"{name}_{self.run_name}.pth"
         )
         
+        # 保存完整检查点 (用于恢复训练)
         torch.save({
             'iteration': self.iteration,
             'model_state_dict': self.network.state_dict(),
@@ -558,6 +561,17 @@ class AlphaZeroStrongTrainer:
         
         print(f"  保存检查点: {checkpoint_path}")
         self.logger.info(f"[检查点保存] {checkpoint_path}")
+        
+        # 同时也保存一个仅包含权重的版本 (用于提交，<100MB)
+        if 'best' in name or 'final' in name:
+            submission_path = os.path.join(
+                self.config.CHECKPOINT_DIR,
+                f"{name}_{self.run_name}_submission.pth"
+            )
+            torch.save(self.network.state_dict(), submission_path)
+            print(f"  保存提交模型: {submission_path}")
+            self.logger.info(f"[提交模型保存] {submission_path}")
+
         self.logger.debug(f"  迭代: {self.iteration}, 总游戏数: {self.total_games}, 最佳胜率: {self.best_win_rate*100:.2f}%")
     
     def _plot_training_curves(self):
@@ -735,8 +749,8 @@ def main():
     """主入口"""
     parser = argparse.ArgumentParser(description='AlphaZero强化训练 for ConnectX')
     parser.add_argument('--config', type=str, default='strong',
-                       choices=['strong', 'balanced', 'fast', 'ultra'],
-                       help='配置预设 (strong=推荐, balanced=平衡, fast=快速, ultra=极限)')
+                       choices=['strong', 'strong+', 'balanced', 'fast', 'ultra'],
+                       help='配置预设 (strong=推荐, strong+=强化+可提交, balanced=平衡, fast=快速, ultra=极限)')
     parser.add_argument('--iterations', type=int, default=None,
                        help='训练迭代次数')
     parser.add_argument('--checkpoint', type=str, default=None,
@@ -755,7 +769,10 @@ def main():
         print("使用配置: 快速强化版")
     elif args.config == 'ultra':
         config = UltraStrongConfig()
-        print("使用配置: 极限强度版")
+        print("使用配置: 极限强度版 (注意: 模型>100MB)")
+    elif args.config == 'strong+':
+        config = StrongPlusConfig()
+        print("使用配置: 强化+版 (推荐用于Kaggle提交, 模型<100MB)")
     else:
         config = az_config_strong
         print("使用配置: 强化版 (推荐)")
