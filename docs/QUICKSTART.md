@@ -382,6 +382,4 @@ After completing the quick start, you can:
 
 ---
 
-**Happy Training! 🎉**
-
 Feel free to check docs or open issues if you have questions!

@@ -9,12 +9,10 @@ import math
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import agent and utils
-# Allow selection of agent via environment variable or try multiple options
-AGENT_MODULE = os.getenv('AGENT_MODULE', 'main')  # Can be 'main', 'main_alphazero', 'main_DQN', etc.
+AGENT_MODULE = os.getenv('AGENT_MODULE', 'main')
 
 print(f"Loading AI agent from submission.{AGENT_MODULE}...")
 print("(Note: main.py is very large and may take time to load)")
-print("(Set AGENT_MODULE environment variable to use a different agent, e.g., 'main_alphazero')")
 
 ai_agent = None
 agent_loaded = False
@@ -28,11 +26,9 @@ try:
     elif AGENT_MODULE == 'main_DQN':
         import submission.main_DQN as ai_agent
     else:
-        # Try dynamic import
         module_name = f"submission.{AGENT_MODULE}"
         ai_agent = __import__(module_name, fromlist=[''])
     
-    # Verify agent function exists
     if not hasattr(ai_agent, 'agent'):
         raise AttributeError(f"Module {AGENT_MODULE} does not have an 'agent' function")
     
@@ -42,8 +38,6 @@ try:
 except ImportError as e:
     print(f"✗ Error importing AI agent from {AGENT_MODULE}: {e}")
     print("\nTrying fallback options...")
-    
-    # Try fallback options
     fallback_modules = ['main_alphazero', 'main_DQN', 'main_backup']
     for fallback in fallback_modules:
         try:
@@ -59,27 +53,15 @@ except ImportError as e:
                 print(f"  ✓ Successfully loaded {fallback}")
                 agent_loaded = True
                 break
-        except Exception as fallback_error:
-            print(f"  ✗ {fallback} failed: {fallback_error}")
+        except Exception:
             continue
     
     if not agent_loaded:
         print("\n✗ Could not load any AI agent module.")
-        print("Make sure you are running this from the playground directory or project root.")
-        import traceback
-        traceback.print_exc()
         sys.exit(1)
         
-except AttributeError as e:
-    print(f"✗ Agent module loaded but missing 'agent' function: {e}")
-    print(f"Available attributes: {[attr for attr in dir(ai_agent) if not attr.startswith('_')]}")
-    sys.exit(1)
-    
 except Exception as e:
     print(f"✗ Error loading AI agent: {e}")
-    print("The agent file may be corrupted or incompatible.")
-    import traceback
-    traceback.print_exc()
     sys.exit(1)
 
 try:
@@ -88,22 +70,22 @@ try:
     print("✓ Game utilities loaded successfully")
 except ImportError as e:
     print(f"✗ Error importing game utilities: {e}")
-    import traceback
-    traceback.print_exc()
     sys.exit(1)
 
-# Colors
-BLUE = (0, 0, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-YELLOW = (255, 255, 0)
-WHITE = (255, 255, 255)
-GRAY = (128, 128, 128)
-LIGHT_BLUE = (173, 216, 230)
+# --- Modern Colors ---
+BG_COLOR = (30, 33, 40)        # Dark Grey/Blue Background
+BOARD_COLOR = (65, 105, 225)   # Royal Blue
+SLOT_COLOR = (20, 23, 30)      # Darker slot color (empty)
+P1_COLOR = (231, 76, 60)       # Flat Red
+P2_COLOR = (241, 196, 15)      # Flat Yellow
+TEXT_COLOR = (236, 240, 241)   # Off-white
+BUTTON_COLOR = (52, 152, 219)  # Blue button
+BUTTON_HOVER = (41, 128, 185)  # Darker blue hover
+BUTTON_TEXT = (255, 255, 255)
 
 # Game Constants
 SQUARESIZE = 100
-RADIUS = int(SQUARESIZE/2 - 5)
+RADIUS = int(SQUARESIZE/2 - 8) # Slightly smaller for cleaner look
 width = config.COLUMNS * SQUARESIZE
 height = (config.ROWS + 1) * SQUARESIZE
 size = (width, height)
@@ -122,21 +104,25 @@ class Configuration:
         self.timeout = timeout
 
 class Button:
-    def __init__(self, x, y, w, h, text, color, hover_color):
+    def __init__(self, x, y, w, h, text, color=BUTTON_COLOR, hover_color=BUTTON_HOVER, text_color=BUTTON_TEXT, font_size=30):
         self.rect = pygame.Rect(x, y, w, h)
         self.text = text
         self.color = color
         self.hover_color = hover_color
-        self.font = pygame.font.SysFont("monospace", 30)
+        self.text_color = text_color
+        self.font = pygame.font.SysFont("Segoe UI", font_size, bold=True)
+        if not pygame.font.get_fonts(): # Fallback if Segoe UI not found
+             self.font = pygame.font.SysFont("arial", font_size, bold=True)
 
     def draw(self, screen):
         mouse_pos = pygame.mouse.get_pos()
-        if self.rect.collidepoint(mouse_pos):
-            pygame.draw.rect(screen, self.hover_color, self.rect)
-        else:
-            pygame.draw.rect(screen, self.color, self.rect)
+        current_color = self.hover_color if self.rect.collidepoint(mouse_pos) else self.color
         
-        text_surf = self.font.render(self.text, True, BLACK)
+        # Draw rounded rect (simulated by drawing rect + circles or just standard rect for simplicity)
+        pygame.draw.rect(screen, current_color, self.rect, border_radius=10)
+        
+        # Text
+        text_surf = self.font.render(self.text, True, self.text_color)
         text_rect = text_surf.get_rect(center=self.rect.center)
         screen.blit(text_surf, text_rect)
 
@@ -150,152 +136,233 @@ class Connect4UI:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode(size)
-        pygame.display.set_caption("Connect4 vs AI")
-        self.font = pygame.font.SysFont("monospace", 75)
-        self.small_font = pygame.font.SysFont("monospace", 30)
+        pygame.display.set_caption("Connect X - AI Playground")
+        
+        # Fonts
+        self.title_font = pygame.font.SysFont("Segoe UI", 60, bold=True)
+        self.status_font = pygame.font.SysFont("Segoe UI", 40, bold=True)
+        self.small_font = pygame.font.SysFont("Segoe UI", 24)
         
         # Game State
+        self.state = "MENU" # MENU, PLAYING, GAME_OVER
         self.board = [0] * (config.ROWS * config.COLUMNS)
-        self.game_over = False
-        self.turn = 0 # 0 for Player (Red), 1 for AI (Yellow)
+        self.turn = 0 # 0 for Player 1, 1 for Player 2
         self.winner = None
+        self.human_player_idx = 0 # 0 if human is P1, 1 if human is P2
+        self.mouse_x = width // 2 # Track mouse position for floating piece
         
-        # Buttons
-        self.restart_btn = Button(width//2 - 100, height//2 + 50, 200, 50, "Restart", WHITE, GRAY)
+        # Menu Buttons
+        btn_width = 300
+        btn_height = 60
+        center_x = width // 2 - btn_width // 2
         
-    def draw_board(self):
-        for c in range(config.COLUMNS):
-            for r in range(config.ROWS):
-                pygame.draw.rect(self.screen, BLUE, (c*SQUARESIZE, r*SQUARESIZE + SQUARESIZE, SQUARESIZE, SQUARESIZE))
-                pygame.draw.circle(self.screen, BLACK, (int(c*SQUARESIZE + SQUARESIZE/2), int(r*SQUARESIZE + SQUARESIZE + SQUARESIZE/2)), RADIUS)
+        self.btn_human_first = Button(center_x, height//2 - 80, btn_width, btn_height, "Human First (Red)")
+        self.btn_ai_first = Button(center_x, height//2 + 20, btn_width, btn_height, "AI First (Yellow)")
         
-        board_2d = np.array(self.board).reshape(config.ROWS, config.COLUMNS)
-        for c in range(config.COLUMNS):
-            for r in range(config.ROWS):
-                # In pygame grid, row 0 is top, but visual board connects from bottom.
-                # Actually standard visual is row 0 top.
-                # Let's match the visual to the board array.
-                # Array: row 0 is top.
-                # Pygame coords: y=0 is top.
-                # So piece at board[r][c] goes to y = (r+1)*SQUARESIZE
-                
-                piece = board_2d[r][c]
-                if piece == 1:
-                    pygame.draw.circle(self.screen, RED, (int(c*SQUARESIZE + SQUARESIZE/2), int(r*SQUARESIZE + SQUARESIZE + SQUARESIZE/2)), RADIUS)
-                elif piece == 2: 
-                    pygame.draw.circle(self.screen, YELLOW, (int(c*SQUARESIZE + SQUARESIZE/2), int(r*SQUARESIZE + SQUARESIZE + SQUARESIZE/2)), RADIUS)
+        # Game Over Buttons
+        self.btn_menu = Button(width//2 - 160, height//2 + 20, 150, 50, "Menu", color=(100, 100, 100), hover_color=(120, 120, 120))
+        self.btn_restart = Button(width//2 + 10, height//2 + 20, 150, 50, "Play Again")
+
+    def reset_game(self):
+        self.board = [0] * (config.ROWS * config.COLUMNS)
+        self.winner = None
+        self.turn = 0 # Always start with P1 turn logic, but who P1 is depends on selection
+        self.mouse_x = width // 2
+        
+    def draw_menu(self):
+        self.screen.fill(BG_COLOR)
+        
+        # Title
+        title = self.title_font.render("Connect X", True, TEXT_COLOR)
+        title_rect = title.get_rect(center=(width//2, height//4))
+        self.screen.blit(title, title_rect)
+        
+        # Subtitle
+        sub = self.small_font.render("Select Game Mode", True, (180, 180, 180))
+        sub_rect = sub.get_rect(center=(width//2, height//4 + 60))
+        self.screen.blit(sub, sub_rect)
+        
+        self.btn_human_first.draw(self.screen)
+        self.btn_ai_first.draw(self.screen)
         
         pygame.display.update()
 
-    def run(self):
-        self.draw_board()
+    def draw_board(self):
+        self.screen.fill(BG_COLOR)
         
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    sys.exit()
+        # Draw Board Background
+        board_rect = pygame.Rect(0, SQUARESIZE, width, height-SQUARESIZE)
+        
+        # Draw slots
+        for c in range(config.COLUMNS):
+            for r in range(config.ROWS):
+                # Calculate center
+                cx = int(c*SQUARESIZE + SQUARESIZE/2)
+                cy = int(r*SQUARESIZE + SQUARESIZE + SQUARESIZE/2)
                 
-                if event.type == pygame.MOUSEMOTION:
-                    if not self.game_over and self.turn == 0:
-                        pygame.draw.rect(self.screen, BLACK, (0, 0, width, SQUARESIZE))
-                        posx = event.pos[0]
-                        pygame.draw.circle(self.screen, RED, (posx, int(SQUARESIZE/2)), RADIUS)
-                    pygame.display.update()
+                # Draw blue square container
+                pygame.draw.rect(self.screen, BOARD_COLOR, (c*SQUARESIZE, r*SQUARESIZE + SQUARESIZE, SQUARESIZE, SQUARESIZE))
                 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if not self.game_over and self.turn == 0:
-                        pygame.draw.rect(self.screen, BLACK, (0, 0, width, SQUARESIZE))
-                        posx = event.pos[0]
-                        col = int(math.floor(posx/SQUARESIZE))
-                        
-                        if utils.is_valid_move(self.board, col):
-                            # Player Drop Piece
-                            self.board = utils.make_move(self.board, col, 1)
-                            
-                            if utils.check_winner(self.board, 1):
-                                self.game_over = True
-                                self.winner = 1
-                                self.draw_board()
-                                self.show_message("Player Wins!", RED)
-                            
-                            self.turn = 1
-                            self.draw_board()
-                            
-                            if not self.game_over:
-                                self.handle_ai_turn()
+                # Draw circle (empty or filled)
+                # Map 1D board to 2D coordinates
+                # Board index: r * COLUMNS + c
+                idx = r * config.COLUMNS + c
+                piece = self.board[idx]
+                
+                color = SLOT_COLOR
+                if piece == 1:
+                    color = P1_COLOR
+                elif piece == 2:
+                    color = P2_COLOR
+                
+                pygame.draw.circle(self.screen, color, (cx, cy), RADIUS)
 
-                    if self.game_over:
-                        if self.restart_btn.is_clicked(event):
-                            self.reset_game()
+        # Draw Top Bar (Status)
+        pygame.draw.rect(self.screen, BG_COLOR, (0, 0, width, SQUARESIZE))
+        
+        if self.state == "PLAYING":
+            if self.turn == self.human_player_idx:
+                # Draw floating piece for human
+                color = P1_COLOR if self.human_player_idx == 0 else P2_COLOR
+                pygame.draw.circle(self.screen, color, (self.mouse_x, int(SQUARESIZE/2)), RADIUS)
+            else:
+                text = "AI Thinking..."
+                color = P2_COLOR if self.human_player_idx == 0 else P1_COLOR
+                label = self.status_font.render(text, True, color)
+                self.screen.blit(label, (20, 25))
+            
+        elif self.state == "GAME_OVER":
+            if self.winner == 1:
+                text = "Player 1 Wins!"
+                color = P1_COLOR
+            elif self.winner == 2:
+                text = "Player 2 Wins!"
+                color = P2_COLOR
+            else:
+                text = "Draw!"
+                color = TEXT_COLOR
+                
+            # Center the result text
+            label = self.status_font.render(text, True, color)
+            label_rect = label.get_rect(center=(width//2, SQUARESIZE//2))
+            self.screen.blit(label, label_rect)
+            
+            # Draw buttons
+            self.btn_menu.draw(self.screen)
+            self.btn_restart.draw(self.screen)
+
+        pygame.display.update()
 
     def handle_ai_turn(self):
-        # Show thinking
-        pygame.draw.rect(self.screen, BLACK, (0, 0, width, SQUARESIZE))
-        label = self.small_font.render("AI Thinking...", 1, YELLOW)
-        self.screen.blit(label, (10, 10))
-        pygame.display.update()
+        # Force a redraw to show "AI Thinking"
+        self.draw_board()
+        pygame.event.pump() # Process event queue to prevent freezing
         
-        # AI Move
-        obs = Observation(self.board, 2)
+        # AI is always the player that is NOT the human
+        ai_mark = 2 if self.human_player_idx == 0 else 1
+        
+        obs = Observation(self.board, ai_mark)
         conf = Configuration(config.COLUMNS, config.ROWS, config.INAROW)
         
         try:
             start_time = time.time()
             col = ai_agent.agent(obs, conf)
             end_time = time.time()
-            print(f"AI chose column {col} in {end_time - start_time:.4f}s")
-        except AttributeError as e:
-            print(f"AI Error: agent function not found - {e}")
-            print("Make sure submission/main.py has an 'agent' function defined.")
-            import traceback
-            traceback.print_exc()
-            col = 0 # Fallback
+            print(f"AI (P{ai_mark}) chose column {col} in {end_time - start_time:.4f}s")
         except Exception as e:
             print(f"AI Error: {e}")
-            import traceback
-            traceback.print_exc()
-            col = 0 # Fallback
-            
+            col = 0
+            # Try to find first valid move
+            valid = utils.get_valid_moves(self.board)
+            if valid: col = valid[0]
+
         if utils.is_valid_move(self.board, col):
-            self.board = utils.make_move(self.board, col, 2)
+            self.board = utils.make_move(self.board, col, ai_mark)
             
-            if utils.check_winner(self.board, 2):
-                self.game_over = True
-                self.winner = 2
-                self.draw_board()
-                self.show_message("AI Wins!", YELLOW)
+            if utils.check_winner(self.board, ai_mark):
+                self.state = "GAME_OVER"
+                self.winner = ai_mark
             
-            self.turn = 0
-            self.draw_board()
+            # Switch turn
+            self.turn = 1 - self.turn # Toggle 0/1
         else:
             print(f"AI attempted invalid move: {col}")
-            # Fallback or end game?
-            # Let's just skip turn or pick first valid
+            # Fallback
             valid = utils.get_valid_moves(self.board)
             if valid:
-                self.board = utils.make_move(self.board, valid[0], 2)
-                self.turn = 0
-                self.draw_board()
-    
-    def show_message(self, text, color):
-        pygame.draw.rect(self.screen, BLACK, (0, 0, width, SQUARESIZE))
-        label = self.font.render(text, 1, color)
-        rect = label.get_rect(center=(width/2, SQUARESIZE/2))
-        self.screen.blit(label, rect)
+                self.board = utils.make_move(self.board, valid[0], ai_mark)
+                self.turn = 1 - self.turn
+
+    def run(self):
+        clock = pygame.time.Clock()
         
-        # Show restart button
-        self.restart_btn.draw(self.screen)
-        
-        pygame.display.update()
-        
-    def reset_game(self):
-        self.board = [0] * (config.ROWS * config.COLUMNS)
-        self.game_over = False
-        self.turn = 0
-        self.winner = None
-        self.draw_board()
+        while True:
+            clock.tick(60) # Limit FPS
+            
+            if self.state == "MENU":
+                self.draw_menu()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        sys.exit()
+                    
+                    if self.btn_human_first.is_clicked(event):
+                        self.human_player_idx = 0 # Human is P1 (Red)
+                        self.reset_game()
+                        self.state = "PLAYING"
+                        
+                    if self.btn_ai_first.is_clicked(event):
+                        self.human_player_idx = 1 # Human is P2 (Yellow)
+                        self.reset_game()
+                        self.state = "PLAYING"
+            
+            elif self.state == "PLAYING":
+                # Check if it's AI's turn
+                is_ai_turn = (self.turn != self.human_player_idx)
+                
+                if is_ai_turn:
+                    # Add a small delay so it doesn't feel instant/glitchy
+                    pygame.time.wait(500)
+                    self.handle_ai_turn()
+                else:
+                    # Human Turn
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            sys.exit()
+                        
+                        if event.type == pygame.MOUSEMOTION:
+                            self.mouse_x = event.pos[0]
+                        
+                        if event.type == pygame.MOUSEBUTTONDOWN:
+                            self.mouse_x = event.pos[0]
+                            col = int(math.floor(self.mouse_x/SQUARESIZE))
+                            
+                            human_mark = 1 if self.human_player_idx == 0 else 2
+                            
+                            if utils.is_valid_move(self.board, col):
+                                self.board = utils.make_move(self.board, col, human_mark)
+                                
+                                if utils.check_winner(self.board, human_mark):
+                                    self.state = "GAME_OVER"
+                                    self.winner = human_mark
+                                
+                                self.turn = 1 - self.turn
+                    
+                    self.draw_board()
+            
+            elif self.state == "GAME_OVER":
+                self.draw_board() # Draw final state with overlay
+                
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        sys.exit()
+                    
+                    if self.btn_menu.is_clicked(event):
+                        self.state = "MENU"
+                    
+                    if self.btn_restart.is_clicked(event):
+                        self.reset_game()
+                        self.state = "PLAYING"
 
 if __name__ == "__main__":
     game = Connect4UI()
     game.run()
-

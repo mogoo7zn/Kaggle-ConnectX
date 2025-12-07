@@ -1,5 +1,7 @@
 # 🔴 ConnectX Arena 🟡
 
+[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README_zh.md)
+
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-orange.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)

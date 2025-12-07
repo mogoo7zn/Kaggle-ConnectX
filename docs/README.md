@@ -5,7 +5,7 @@ This document provides details about the ConnectX Dual-Agent Project, including 
 ## 🎯 Project Goals
 
 - **Compare Paradigms**: Contrast Value-Based (Rainbow DQN) vs Policy-Based (AlphaZero) RL.
-- **Superhuman Performance**: Train agents that surpass standard Minimax/Negamax baselines.
+- **Better Performance**: Train agents that surpass standard Minimax/Negamax baselines.
 - **Reusable Framework**: Create a modular system for future board game RL projects.
 
 ## 📁 Project Structure

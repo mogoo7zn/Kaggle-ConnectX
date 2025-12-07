@@ -108,11 +108,11 @@ class AlphaZeroConfigStrong:
     USE_AUGMENTATION = True     # 水平翻转增强
     
     # ============== 保存路径 ==============
-    MODEL_DIR = "alphazero/models"
-    CHECKPOINT_DIR = "alphazero/checkpoints"
-    LOG_DIR = "alphazero/logs"
-    PLOT_DIR = "alphazero/plots"
-    SELFPLAY_DIR = "alphazero/selfplay_data"
+    MODEL_DIR = "agents/alphazero/models"
+    CHECKPOINT_DIR = "agents/alphazero/checkpoints"
+    LOG_DIR = "agents/alphazero/logs"
+    PLOT_DIR = "agents/alphazero/plots"
+    SELFPLAY_DIR = "agents/alphazero/selfplay_data"
     
     # ============== 设备 ==============
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

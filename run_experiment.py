@@ -219,8 +219,8 @@ def main():
     print(f"\nResults saved in: {args.output_dir}/")
     print("\nNext steps:")
     print("  1. Review comparison report (comparison_*/comparison_report.html)")
-    print("  2. Check training logs in outputs/logs/")
-    print("  3. Load best models from outputs/checkpoints/")
+    print("  2. Check training logs in agents/*/logs/")
+    print("  3. Load best models from agents/*/checkpoints/")
     print("  4. Prepare Kaggle submission using tools/prepare_submission.py")
     print("\n" + "="*80 + "\n")
 

@@ -179,7 +179,7 @@ action = agent(obs, None)
 print(f"Agent selected action: {action}")
 ```
 
-## 🎮 交互式对战（可选）
+## 🎮 交互式对弈（可选）
 
 ```python
 from evaluation.arena import Arena
@@ -352,8 +352,6 @@ trainer.train(max_iterations=50)  # 继续训练
 - 💬 讨论: GitHub Discussions
 
 ---
-
-**祝你训练愉快！🎉**
 
 如有问题随时查阅文档或提issue!
 

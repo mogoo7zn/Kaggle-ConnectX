@@ -1,11 +1,13 @@
 # 🔴 ConnectX 竞技场 🟡
 
+[![English Docs](https://img.shields.io/badge/Docs-English-blue.svg)](README.md)
+
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-orange.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Kaggle](https://img.shields.io/badge/Kaggle-ConnectX-20BEFF)](https://www.kaggle.com/c/connectx)
 
-> **双智能体强化学习框架**: 实现 **Rainbow DQN** 和 **AlphaZero** 以攻克四子棋 (Connect 4) 游戏。
+> **双智能体强化学习框架**: 实现 **Rainbow DQN** 和 **AlphaZero** 的四子棋 (Connect 4) 游戏。
 
 ---
 
@@ -22,7 +24,7 @@
     - [🏃 运行快速实验](#-运行快速实验)
     - [🏋️ 训练智能体](#️-训练智能体)
     - [⚔️ 评估](#️-评估)
-    - [🎮 游玩](#-游玩)
+    - [🎮 对弈](#-对弈)
   - [📚 文档](#-文档)
   - [🏗️ 项目结构](#️-项目结构)
   - [📊 性能](#-性能)
@@ -32,12 +34,10 @@
 
 ## ✨ 简介
 
-本项目提供了一个用于在 ConnectX (四子棋) 游戏中训练和评估强化学习智能体的游乐场环境。它包含两种最先进的实现：
+本项目提供了一个用于在 ConnectX (四子棋) 游戏中训练和评估强化学习智能体的实验环境。它包含两种实现：
 
-1.  **🌈 Rainbow DQN**: 一种结合了 6 项主要 DQN 改进的高级基于价值的方法。
+1.  **🌈 Rainbow DQN**: 基于 DQN 改进的高级价值引导的方法。
 2.  **🤖 AlphaZero**: 一种利用蒙特卡洛树搜索 (MCTS) 和自我对弈的基于策略的方法。
-
-目标是对比这两种范式，并在 Kaggle ConnectX 模拟中实现高性能。
 
 ---
 
@@ -46,7 +46,7 @@
 ### 🌈 Rainbow DQN
 
 - ✅ **优先经验回放 (Prioritized Experience Replay)**: 更频繁地从重要的转换中学习。
-- ✅ **决斗架构 (Dueling Architecture)**: 分离状态价值和优势估计。
+- ✅ **比对架构 (Dueling Architecture)**: 分离状态价值和优势估计。
 - ✅ **噪声网络 (Noisy Nets)**: 通过随机网络层增强探索。
 - ✅ **多步学习 (Multi-step Learning)**: 使用 N 步回报以获得更好的收敛性。
 - ✅ **双重 DQN (Double DQN)**: 减少高估偏差。
@@ -107,9 +107,9 @@ python -m evaluation.benchmark
 python -m evaluation.compare
 ```
 
-### 🎮 游玩
+### 🎮 对弈
 
-与训练好的智能体进行交互式对战：
+与训练好的智能体进行交互式对弈：
 
 ```bash
 python playground/play.py
@@ -156,7 +156,7 @@ connectX/
 └── 📂 submission/       # Kaggle 提交产物
 ```
 
-> 查看 [PROJECT_STRUCTURE_zh.md](docs/PROJECT_STRUCTURE_zh.md) 获取完整文件树。
+> 查看 [PROJECT_STRUCTURE_zh.md](docs/PROJECT_STRUCTURE_zh.md) 获取完整项目结构。
 
 ---
 

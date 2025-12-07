@@ -87,10 +87,10 @@ class RainbowConfig(DQNConfig):
     # (inherited from DQNConfig)
     
     # ============== Saving and Logging ==============
-    MODEL_DIR = "rainbow/models"
-    CHECKPOINT_DIR = "rainbow/checkpoints"
-    LOG_DIR = "rainbow/logs"
-    PLOT_DIR = "rainbow/plots"
+    MODEL_DIR = "agents/rainbow/models"
+    CHECKPOINT_DIR = "agents/rainbow/checkpoints"
+    LOG_DIR = "agents/rainbow/logs"
+    PLOT_DIR = "agents/rainbow/plots"
     SAVE_INTERVAL = 1000
     
     # ============== Validation ==============
