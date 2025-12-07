@@ -168,6 +168,13 @@ Play against the trained agent interactively:
 python playground/play.py
 ```
 
+### 📦 Deployment
+
+To build a standalone executable for Windows/Mac/Linux:
+
+1.  Go to the `deploy/` directory.
+2.  Follow the instructions in [deploy/README.md](deploy/README.md).
+
 ---
 
 ## 📚 Documentation

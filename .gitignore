@@ -14,6 +14,11 @@ ENV/
 # Outputs
 outputs/
 !outputs/.gitkeep
+dist/
+build/
+
+# report 
+report/
 
 # Experiments
 experiments/*
@@ -47,6 +52,3 @@ Thumbs.db
 
 # final result
 # submission/main.py
-
-# report 
-report/

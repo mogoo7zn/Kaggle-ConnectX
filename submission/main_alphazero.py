@@ -672,19 +672,31 @@ def get_agent() -> AlphaZeroAgentV2:
     if _agent is None:
         _agent = AlphaZeroAgentV2()
         
+        # Determine base path for resource loading
+        import sys
+        import os
+        if getattr(sys, 'frozen', False):
+            # Running in PyInstaller bundle
+            base_path = sys._MEIPASS
+        else:
+            # Running in normal Python environment
+            base_path = os.path.dirname(os.path.abspath(__file__))
+
         paths = [
-            '/kaggle_simulations/agent/alphazero_model.pth',
-            '/kaggle_simulations/agent/alpha-zero-v0.pth',
-            '/kaggle_simulations/agent/best_model.pth',
-            '/kaggle/input/connectx-alphazero/alphazero_model.pth',
-            'alphazero_model.pth',
-            'alpha-zero-v0.pth',
-            './alpha-zero-v0.pth',
+            os.path.join(base_path, 'submission', 'alpha-zero-ultra-weights.pth'), # PyInstaller path
+            os.path.join(base_path, 'alpha-zero-ultra-weights.pth'), # Local path
+            '/kaggle_simulations/agent/alpha-zero-ultra-weights.pth',
+            'alpha-zero-ultra-weights.pth',
+            './alpha-zero-ultra-weights.pth',
+            # Fallbacks
+            os.path.join(base_path, 'submission', 'alpha-zero-v0.pth'),
+            os.path.join(base_path, 'alpha-zero-v0.pth'),
         ]
         
         for path in paths:
             try:
                 if _agent.load_model(path):
+                    print(f"Successfully loaded model from {path}")
                     break
             except:
                 continue

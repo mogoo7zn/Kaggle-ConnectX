@@ -115,6 +115,13 @@ python -m evaluation.compare
 python playground/play.py
 ```
 
+### 📦 部署
+
+构建 Windows/Mac/Linux 的独立可执行文件：
+
+1.  进入 `deploy/` 目录。
+2.  按照 [deploy/README.md](deploy/README.md) 中的说明操作。
+
 ---
 
 ## 📚 文档
