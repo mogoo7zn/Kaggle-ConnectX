@@ -1,224 +1,278 @@
-# 📁 ConnectX 项目结构说明
+# 📁 ConnectX Project Structure
 
-**版本**: 2.0.0  
-**状态**: ✅ 已重组  
-**日期**: 2025-11-25
+## 🎯 Design Principles
 
-## 🎯 设计原则
+1. **Modularity**: Each component has clear responsibilities and is independently testable.
+2. **Extensibility**: Easy to add new agent implementations.
+3. **Standardization**: Follows Python package management best practices.
+4. **Centralization**: Unified organization of outputs and documentation.
 
-1. **模块化**: 每个组件职责清晰，独立可测
-2. **可扩展**: 易于添加新的agent实现
-3. **标准化**: 遵循Python包管理最佳实践
-4. **集中管理**: 输出和文档统一组织
-
-## 📂 完整目录结构
+## 📂 Complete Directory Structure
 
 ```
 connectX/
 │
-├── 📁 agents/                       # 所有智能体实现
-│   ├── __init__.py                  # 包初始化
+├── 📁 agents/                       # All agent implementations
+│   ├── __init__.py                  # Package initialization
 │   │
-│   ├── 📁 base/                     # 共享基础组件
+│   ├── 📁 base/                     # Shared base components
 │   │   ├── __init__.py
-│   │   ├── config.py                # 基础配置类
-│   │   └── utils.py                 # 通用工具函数
+│   │   ├── config.py                # Base configuration class
+│   │   └── utils.py                 # Common utility functions
 │   │
-│   ├── 📁 dqn/                      # 基础DQN实现
+│   ├── 📁 dqn/                      # Basic DQN implementation
 │   │   ├── __init__.py
-│   │   ├── dqn_model.py             # DQN神经网络
-│   │   ├── dqn_agent.py             # DQN智能体
-│   │   ├── replay_buffer.py         # 经验回放
-│   │   └── train_dqn.py             # 训练脚本
+│   │   ├── dqn_model.py             # DQN Neural Network
+│   │   ├── dqn_agent.py             # DQN Agent
+│   │   ├── replay_buffer.py         # Experience Replay
+│   │   └── train_dqn.py             # Training script
 │   │
-│   ├── 📁 rainbow/                  # Rainbow DQN实现
+│   ├── 📁 rainbow/                  # Rainbow DQN implementation
 │   │   ├── __init__.py
-│   │   ├── rainbow_config.py        # Rainbow配置
+│   │   ├── rainbow_config.py        # Rainbow configuration
 │   │   ├── rainbow_model.py         # Dueling + Noisy Nets
-│   │   ├── rainbow_agent.py         # Rainbow智能体
-│   │   ├── prioritized_buffer.py    # 优先经验回放
-│   │   ├── train_rainbow.py         # 训练脚本
-│   │   └── README.md                # Rainbow文档
+│   │   ├── rainbow_agent.py         # Rainbow Agent
+│   │   ├── prioritized_buffer.py    # Prioritized Experience Replay
+│   │   ├── train_rainbow.py         # Training script
+│   │   └── README.md                # Rainbow documentation
 │   │
-│   └── 📁 alphazero/                # AlphaZero实现
+│   └── 📁 alphazero/                # AlphaZero implementation
 │       ├── __init__.py
-│       ├── az_config.py             # AlphaZero配置
-│       ├── az_model.py              # Policy-Value网络
-│       ├── mcts.py                  # MCTS实现
-│       ├── self_play.py             # 自我对弈
-│       ├── train_alphazero.py       # 训练脚本
-│       └── README.md                # AlphaZero文档
+│       ├── az_config.py             # AlphaZero configuration
+│       ├── az_model.py              # Policy-Value Network
+│       ├── mcts.py                  # MCTS implementation
+│       ├── self_play.py             # Self-play engine
+│       ├── train_alphazero.py       # Training script
+│       └── README.md                # AlphaZero documentation
 │
-├── 📁 evaluation/                   # 评估框架
+├── 📁 evaluation/                   # Evaluation Framework
 │   ├── __init__.py
-│   ├── arena.py                     # 对战竞技场
-│   ├── benchmark.py                 # 基准测试
-│   └── compare.py                   # 性能对比
+│   ├── arena.py                     # Match arena
+│   ├── benchmark.py                 # Benchmark suite
+│   └── compare.py                   # Performance comparison
 │
-├── 📁 tools/                        # 工具脚本
+├── 📁 playground/                   # Interactive Game Interface
+│   └── play.py                      # PyGame main program
+│
+├── 📁 scripts/                      # Automation Scripts
+│   ├── setup_env.bat                # Windows setup script
+│   └── setup_env.sh                 # Linux/Mac setup script
+│
+├── 📁 tools/                        # Utility Scripts
 │   ├── __init__.py
-│   ├── prepare_submission.py        # Kaggle提交准备
-│   ├── visualize.py                 # 可视化工具
+│   ├── prepare_submission.py        # Kaggle submission preparation
+│   ├── visualize.py                 # Visualization tools
 │   └── README.md
 │
-├── 📁 outputs/                      # 训练输出（统一管理）
+├── 📁 outputs/                      # Training Outputs (Unified)
 │   ├── __init__.py
-│   ├── 📁 checkpoints/             # 训练检查点
+│   ├── 📁 checkpoints/             # Training checkpoints
 │   │   ├── dqn/
 │   │   ├── rainbow/
 │   │   └── alphazero/
-│   ├── 📁 logs/                    # 训练日志
+│   ├── 📁 logs/                    # Training logs
 │   │   ├── dqn/
 │   │   ├── rainbow/
 │   │   └── alphazero/
-│   ├── 📁 models/                  # 最终模型
+│   ├── 📁 models/                  # Final models
 │   │   ├── dqn/
 │   │   ├── rainbow/
 │   │   └── alphazero/
-│   └── 📁 plots/                   # 训练图表
+│   └── 📁 plots/                   # Training plots
 │       ├── dqn/
 │       ├── rainbow/
 │       └── alphazero/
 │
-├── 📁 docs/                         # 文档
-│   ├── README.md                    # 详细文档
-│   ├── QUICKSTART.md                # 快速开始
-│   ├── ARCHITECTURE.md              # 架构说明
-│   └── REORGANIZATION.md            # 重组计划
+├── 📁 docs/                         # Documentation
+│   ├── README.md                    # Detailed documentation
+│   ├── QUICKSTART.md                # Quick start guide
+│   ├── ARCHITECTURE.md              # Architecture description
+│   └── REORGANIZATION.md            # Reorganization plan
 │
-├── 📁 tests/                        # 测试代码
+├── 📁 tests/                        # Test Code
 │   ├── __init__.py
-│   ├── test_dqn.py                  # DQN测试
-│   ├── test_rainbow.py              # Rainbow测试
-│   ├── test_alphazero.py            # AlphaZero测试
-│   └── test_evaluation.py           # 评估测试
+│   ├── test_dqn.py                  # DQN tests
+│   ├── test_rainbow.py              # Rainbow tests
+│   ├── test_alphazero.py            # AlphaZero tests
+│   └── test_evaluation.py           # Evaluation tests
 │
-├── 📁 experiments/                  # 实验结果
+├── 📁 experiments/                  # Experimental Results
 │   ├── .gitkeep
 │   └── README.md
 │
-├── 📁 submission/                   # Kaggle提交文件
+├── 📁 submission/                   # Kaggle Submission Files
 │   ├── dqn_agent.py
 │   ├── rainbow_agent.py
 │   ├── alphazero_agent.py
 │   └── README.md
 │
-├── 📄 run_experiment.py            # 主实验脚本
-├── 📄 cleanup_old_files.py         # 清理脚本
-├── 📄 requirements.txt             # 依赖
-├── 📄 .gitignore                   # Git忽略文件
-├── 📄 LICENSE                      # 许可证
-├── 📄 README.md                    # 项目主README
-├── 📄 REORGANIZATION_COMPLETE.md   # 重组完成说明
-└── 📄 PROJECT_STRUCTURE.md         # 本文件
+├── 📄 run_experiment.py            # Main Experiment Script
+├── 📄 cleanup_old_files.py         # Cleanup Script
+├── 📄 requirements.txt             # Dependencies
+├── 📄 .gitignore                   # Git Ignore
+├── 📄 LICENSE                      # License
+├── 📄 README.md                    # Project Main README
+├── 📄 REORGANIZATION_COMPLETE.md   # Reorganization Completion Note
+└── 📄 PROJECT_STRUCTURE.md         # This File
 ```
 
-## 🔍 目录说明
+## 🔍 Directory Description
 
-### agents/ - 智能体实现
+### agents/ - Agent Implementations
 
-**作用**: 包含所有强化学习智能体的实现
+**Role**: Contains implementations of all Reinforcement Learning agents.
 
-**子目录**:
-- `base/`: 共享的基础组件（配置、工具函数）
-- `dqn/`: 基础DQN实现（baseline）
-- `rainbow/`: Rainbow DQN（6大改进）
-- `alphazero/`: AlphaZero（MCTS + 神经网络）
+**Subdirectories**:
 
-**特点**:
-- 每个agent独立目录
-- 共享组件在base/
-- 易于添加新agent
+- `base/`: Shared base components (config, utils).
+- `dqn/`: Basic DQN implementation (baseline).
+- `rainbow/`: Rainbow DQN (6 major improvements).
+- `alphazero/`: AlphaZero (MCTS + Neural Network).
 
-### evaluation/ - 评估框架
+**Features**:
 
-**作用**: 统一的agent评估和对比工具
+- Independent directory for each agent.
+- Shared components in `base/`.
+- Easy to add new agents.
 
-**组件**:
-- `arena.py`: 公平的对战平台
-- `benchmark.py`: 标准化性能测试
-- `compare.py`: 多agent对比分析
+### evaluation/ - Evaluation Framework
 
-**特点**:
-- Agent无关的评估接口
-- 标准化的性能指标
-- 自动生成对比报告
+**Role**: Unified tool for agent evaluation and comparison.
 
-### tools/ - 工具脚本
+**Components**:
 
-**作用**: 辅助开发和部署的工具
+- `arena.py`: Fair match platform.
+- `benchmark.py`: Standardized performance testing.
+- `compare.py`: Multi-agent comparison analysis.
 
-**包含**:
-- Kaggle提交准备
-- 训练可视化
-- 诊断工具
+**Features**:
 
-### outputs/ - 训练输出
+- Agent-agnostic evaluation interface.
+- Standardized performance metrics.
+- Automatic comparison report generation.
 
-**作用**: 统一管理所有训练产生的文件
+### playground/ - Interactive Game Interface
 
-**结构**: 按agent类型和输出类型组织
-- `checkpoints/`: 训练检查点
-- `logs/`: TensorBoard日志
-- `models/`: 最终训练模型
-- `plots/`: 训练曲线图表
+**Role**: Provides a graphical interface to play against AI.
 
-**优势**:
-- 集中管理
-- 易于清理
-- 便于备份
+**Components**:
 
-### docs/ - 文档
+- `play.py`: PyGame-based interactive game program.
 
-**作用**: 集中管理所有项目文档
+**Features**:
 
-**包含**:
-- 用户指南
-- API文档
-- 架构说明
-- 开发文档
+- Real-time gameplay.
+- Visualized board.
+- Supports loading trained models.
 
-### tests/ - 测试
+**Dependencies**: Requires `pygame` library (included in `requirements.txt`).
 
-**作用**: 单元测试和集成测试
+### scripts/ - Automation Scripts
 
-**组织**: 按模块组织测试文件
+**Role**: Provides convenient environment setup and automation tools.
 
-## 🚀 使用方法
+**Components**:
 
-### 训练Agent
+- `setup_env.bat`: Windows environment setup script.
+- `setup_env.sh`: Linux/Mac environment setup script.
+
+**Functions**:
+
+- Automatically creates Python virtual environment.
+- Checks Python version.
+- Installs all project dependencies.
+- Provides clear installation feedback.
+
+**Usage**:
 
 ```bash
-# 使用模块方式
+# Windows
+scripts\setup_env.bat
+
+# Linux/Mac
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+```
+
+### tools/ - Utility Scripts
+
+**Role**: Tools for development and deployment assistance.
+
+**Includes**:
+
+- Kaggle submission preparation.
+- Training visualization.
+- Diagnostic tools.
+
+### outputs/ - Training Outputs
+
+**Role**: Unified management of all files generated during training.
+
+**Structure**: Organized by agent type and output type.
+
+- `checkpoints/`: Training checkpoints.
+- `logs/`: TensorBoard logs.
+- `models/`: Final trained models.
+- `plots/`: Training curve plots.
+
+**Advantages**:
+
+- Centralized management.
+- Easy to clean up.
+- Convenient for backup.
+
+### docs/ - Documentation
+
+**Role**: Centralized management of all project documentation.
+
+**Includes**:
+
+- User guides.
+- API documentation.
+- Architecture description.
+- Development documentation.
+
+### tests/ - Tests
+
+**Role**: Unit tests and integration tests.
+
+**Organization**: Test files organized by module.
+
+## 🚀 Usage
+
+### Train Agent
+
+```bash
+# Using module mode
 python -m agents.rainbow.train_rainbow
 python -m agents.alphazero.train_alphazero
 
-# 或直接运行
+# Or run directly
 python agents/rainbow/train_rainbow.py
 python agents/alphazero/train_alphazero.py
 ```
 
-### 运行完整实验
+### Run Full Experiment
 
 ```bash
-# 快速测试
+# Quick test
 python run_experiment.py --quick
 
-# 完整训练
+# Full training
 python run_experiment.py
 ```
 
-### 评估性能
+### Evaluate Performance
 
 ```bash
-# 基准测试
+# Benchmark test
 python -m evaluation.benchmark
 
-# 生成对比报告
+# Generate comparison report
 python -m evaluation.compare
 ```
 
-### 准备提交
+### Prepare Submission
 
 ```bash
 python tools/prepare_submission.py \
@@ -226,133 +280,128 @@ python tools/prepare_submission.py \
     --model-path outputs/models/rainbow/best.pth
 ```
 
-## 📦 包导入示例
+## 📦 Package Import Examples
 
 ```python
-# 导入基础组件
+# Import base components
 from agents.base.config import config
 from agents.base.utils import encode_state, get_valid_moves
 
-# 导入特定agent
+# Import specific agent
 from agents.rainbow.rainbow_agent import RainbowAgent
 from agents.alphazero.mcts import MCTS
 
-# 导入评估工具
+# Import evaluation tools
 from evaluation.arena import Arena
 from evaluation.benchmark import Benchmark
 ```
 
-## 🔄 添加新Agent
+## 🔄 Adding a New Agent
 
-添加新agent的标准流程：
+Standard process for adding a new agent:
 
 ```bash
-# 1. 创建目录
+# 1. Create directory
 mkdir agents/new_agent
 
-# 2. 创建必要文件
+# 2. Create necessary files
 touch agents/new_agent/__init__.py
 touch agents/new_agent/new_agent_config.py
 touch agents/new_agent/new_agent_model.py
 touch agents/new_agent/new_agent_agent.py
 touch agents/new_agent/train_new_agent.py
 
-# 3. 继承基础组件
-# 在代码中: from agents.base import config, utils
+# 3. Inherit base components
+# In code: from agents.base import config, utils
 
-# 4. 添加到评估
-# 实现标准接口，可直接用evaluation框架评估
+# 4. Add to evaluation
+# Implement standard interface, can be directly evaluated by evaluation framework
 ```
 
-## 🛠️ 维护指南
+## 🛠️ Maintenance Guide
 
-### 清理输出
+### Clean Outputs
 
 ```bash
-# 清理所有训练输出
+# Clean all training outputs
 rm -rf outputs/checkpoints/*
 rm -rf outputs/logs/*
 rm -rf outputs/plots/*
 
-# 保留最新模型
-# outputs/models/ 建议手动管理
+# Keep latest models
+# outputs/models/ recommended to manage manually
 ```
 
-### 备份重要文件
+### Backup Important Files
 
 ```bash
-# 备份检查点
+# Backup checkpoints
 cp -r outputs/checkpoints/ backup/checkpoints_$(date +%Y%m%d)/
 
-# 备份最佳模型
+# Backup best models
 cp -r outputs/models/ backup/models_$(date +%Y%m%d)/
 ```
 
-### 版本管理
+### Version Control
 
 ```bash
-# 仅跟踪源代码，忽略输出
+# Track source code only, ignore outputs
 git add agents/ evaluation/ tools/ docs/
 git add run_experiment.py README.md requirements.txt
 
-# outputs/ 应该在 .gitignore 中
+# outputs/ should be in .gitignore
 ```
 
-## 📊 文件统计
+## 📊 File Statistics
 
-- **Python文件**: ~35个
-- **配置文件**: 3个
-- **文档文件**: 8个
-- **测试文件**: 4个 (待完善)
-- **总代码行数**: ~7,500行
+- **Python Files**: ~35
+- **Config Files**: 3
+- **Doc Files**: 8
+- **Test Files**: 4 (To be improved)
+- **Total Lines of Code**: ~7,500 lines
 
-## ✅ 质量检查
+## ✅ Quality Check
 
-### 代码规范
+### Code Style
 
 ```bash
-# 使用 black 格式化
+# Format using black
 black agents/ evaluation/ tools/
 
-# 使用 flake8 检查
+# Check using flake8
 flake8 agents/ evaluation/ tools/
 
-# 使用 mypy 类型检查
+# Type check using mypy
 mypy agents/
 ```
 
-### 运行测试
+### Run Tests
 
 ```bash
-# 运行所有测试
+# Run all tests
 pytest tests/
 
-# 运行特定测试
+# Run specific test
 pytest tests/test_rainbow.py
 
-# 生成覆盖率报告
+# Generate coverage report
 pytest --cov=agents tests/
 ```
 
-## 🎯 最佳实践
+## 🎯 Best Practices
 
-1. **模块化开发**: 每个组件独立开发和测试
-2. **文档先行**: 先写文档，再写代码
-3. **测试驱动**: 关键功能都有测试覆盖
-4. **版本控制**: 使用语义化版本号
-5. **持续集成**: 自动化测试和部署
+1. **Modular Development**: Develop and test each component independently.
+2. **Documentation First**: Write docs before code.
+3. **Test Driven**: Key features covered by tests.
+4. **Version Control**: Use semantic versioning.
+5. **Continuous Integration**: Automated testing and deployment.
 
-## 📚 相关文档
+## 📚 Related Documentation
 
-- [README.md](README.md) - 项目概览
-- [docs/QUICKSTART.md](docs/QUICKSTART.md) - 快速开始
-- [docs/README.md](docs/README.md) - 详细文档
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - 架构设计
-- [REORGANIZATION_COMPLETE.md](REORGANIZATION_COMPLETE.md) - 重组说明
+- [README.md](README.md) - Project Overview
+- [docs/QUICKSTART.md](docs/QUICKSTART.md) - Quick Start
+- [docs/README.md](docs/README.md) - Detailed Documentation
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Architecture Design
+- [REORGANIZATION_COMPLETE.md](REORGANIZATION_COMPLETE.md) - Reorganization Note
 
 ---
-
-**清晰的结构 = 高效的开发**
-
-*最后更新: 2025-11-25*
-

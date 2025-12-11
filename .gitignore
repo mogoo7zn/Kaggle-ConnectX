@@ -7,12 +7,18 @@ __pycache__/
 
 # Virtual Environment
 .venv/
+venv/
 env/
 ENV/
 
 # Outputs
 outputs/
 !outputs/.gitkeep
+dist/
+build/
+
+# report 
+report/
 
 # Experiments
 experiments/*
@@ -43,3 +49,6 @@ Thumbs.db
 **/checkpoints/
 
 *.pth
+
+# final result
+# submission/main.py

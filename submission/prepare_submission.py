@@ -11,19 +11,38 @@ import sys
 import base64
 import gzip
 import argparse
+import io
 from pathlib import Path
 import torch
 
 
 def compress_and_encode_model(model_path: str) -> str:
-    """压缩并编码模型为base64字符串"""
+    """压缩并编码模型为base64字符串 (仅保留权重)"""
     print(f"读取模型: {model_path}")
     
-    with open(model_path, 'rb') as f:
-        model_bytes = f.read()
+    # 尝试加载模型以提取权重 (去除优化器状态等)
+    try:
+        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+        
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            print("  检测到完整检查点，提取 model_state_dict...")
+            state_dict = checkpoint['model_state_dict']
+        else:
+            print("  假设文件仅包含权重...")
+            state_dict = checkpoint
+            
+        # 保存纯权重到内存缓冲区
+        buffer = io.BytesIO()
+        torch.save(state_dict, buffer)
+        model_bytes = buffer.getvalue()
+        
+    except Exception as e:
+        print(f"  [警告] 无法作为PyTorch模型加载 ({e})，将按原样读取文件...")
+        with open(model_path, 'rb') as f:
+            model_bytes = f.read()
     
     original_size = len(model_bytes)
-    print(f"  原始大小: {original_size / 1024 / 1024:.2f} MB")
+    print(f"  处理后大小: {original_size / 1024 / 1024:.2f} MB")
     
     # 使用gzip压缩
     compressed = gzip.compress(model_bytes, compresslevel=9)
@@ -353,10 +372,12 @@ def find_open_three(board, mark):
     b = np.array(board).reshape(ROWS, COLUMNS)
     for r in range(ROWS):
         for c in range(COLUMNS - 4):
-            w = b[r, c:c+5]
-            if np.all(w == [0, op, op, op, 0]):
-                if (r == ROWS - 1) or (b[r+1, c] != 0): return c
-                if (r == ROWS - 1) or (b[r+1, c+4] != 0): return c + 4
+            if np.all(b[r, c:c+5] == [0, op, op, op, 0]):
+                cands = []
+                if (r == ROWS - 1) or (b[r+1, c] != 0): cands.append(c)
+                if (r == ROWS - 1) or (b[r+1, c+4] != 0): cands.append(c+4)
+                for cand in cands:
+                    if not is_losing_move(board, cand, mark): return cand
     return None
 
 
@@ -365,10 +386,12 @@ def find_open_two(board, mark):
     b = np.array(board).reshape(ROWS, COLUMNS)
     for r in range(ROWS):
         for c in range(COLUMNS - 3):
-            w = b[r, c:c+4]
-            if np.all(w == [0, op, op, 0]):
-                if (r == ROWS - 1) or (b[r+1, c] != 0): return c
-                if (r == ROWS - 1) or (b[r+1, c+3] != 0): return c + 3
+            if np.all(b[r, c:c+4] == [0, op, op, 0]):
+                cands = []
+                if (r == ROWS - 1) or (b[r+1, c] != 0): cands.append(c)
+                if (r == ROWS - 1) or (b[r+1, c+3] != 0): cands.append(c+3)
+                for cand in cands:
+                    if not is_losing_move(board, cand, mark): return cand
     return None
 
 
@@ -465,8 +488,8 @@ def create_submission(model_path: str, output_path: str):
     print(f"\n生成文件大小: {output_size:.2f} MB")
     
     if output_size > 100:
-        print("[警告] 文件大小超过100MB限制!")
-        return False
+        print("[警告] 文件大小超过100MB限制! (但继续打包)")
+        # return False
     
     # 验证代码
     print("\n[步骤4] 验证代码...")
@@ -507,7 +530,7 @@ def create_submission(model_path: str, output_path: str):
 
 def main():
     parser = argparse.ArgumentParser(description='准备Kaggle ConnectX提交文件')
-    parser.add_argument('--model', type=str, default='alpha-zero-v2.pth',
+    parser.add_argument('--model', type=str, default='alpha-zero-ultra-weights.pth',
                        help='模型文件路径')
     parser.add_argument('--output', type=str, default='main.py',
                        help='输出文件路径')

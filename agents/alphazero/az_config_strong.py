@@ -108,11 +108,11 @@ class AlphaZeroConfigStrong:
     USE_AUGMENTATION = True     # 水平翻转增强
     
     # ============== 保存路径 ==============
-    MODEL_DIR = "alphazero/models"
-    CHECKPOINT_DIR = "alphazero/checkpoints"
-    LOG_DIR = "alphazero/logs"
-    PLOT_DIR = "alphazero/plots"
-    SELFPLAY_DIR = "alphazero/selfplay_data"
+    MODEL_DIR = "agents/alphazero/models"
+    CHECKPOINT_DIR = "agents/alphazero/checkpoints"
+    LOG_DIR = "agents/alphazero/logs"
+    PLOT_DIR = "agents/alphazero/plots"
+    SELFPLAY_DIR = "agents/alphazero/selfplay_data"
     
     # ============== 设备 ==============
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -155,6 +155,55 @@ class UltraStrongConfig(AlphaZeroConfigStrong):
     MAX_ITERATIONS = 1000
 
 
+# 预设配置: 强化+版 (比strong强，但模型大小<100MB，可提交)
+class StrongPlusConfig(AlphaZeroConfigStrong):
+    """
+    强化+配置 (推荐用于Kaggle提交)
+    
+    设计目标:
+    - 比strong更强的训练质量
+    - 模型文件大小控制在100MB以下，满足Kaggle提交要求
+    - 通过更多的MCTS模拟和更长的训练来弥补网络规模的限制
+    
+    模型大小估算:
+    - 10残差块 × 160滤波器 ≈ 60-70MB (满足<100MB要求)
+    - 相比Ultra的12×256 (>150MB) 大幅缩小
+    - 相比Strong的8×128 (~30MB) 略大但更强
+    """
+    # 网络架构 - 平衡大小和能力
+    NUM_RES_BLOCKS = 10         # 比strong多2块，但比ultra少2块
+    NUM_FILTERS = 160           # 比strong多32，但比ultra少96
+    
+    # 策略和价值头也适度增强
+    POLICY_FILTERS = 48         # 增强策略表示
+    VALUE_FILTERS = 48          # 增强价值估计
+    VALUE_HIDDEN = 192          # 更大的价值头
+    
+    # MCTS参数 - 更充分的搜索来弥补网络
+    NUM_SIMULATIONS = 600       # 比strong多200次模拟
+    NUM_SIMULATIONS_EVAL = 1200 # 评估时更充分
+    SIMS_EARLY_GAME = 600       # 开局关键
+    SIMS_MID_GAME = 600
+    SIMS_LATE_GAME = 300
+    
+    # 自对弈 - 更多高质量数据
+    NUM_SELFPLAY_GAMES = 300    # 每迭代更多游戏
+    NUM_PARALLEL_GAMES = 24     # 更多并行
+    
+    # 训练参数 - 更长训练
+    BATCH_SIZE = 768
+    TRAINING_EPOCHS = 15        # 每迭代更多训练
+    MAX_ITERATIONS = 600        # 更多迭代
+    
+    # 更大的缓冲区
+    REPLAY_BUFFER_SIZE = 800000
+    
+    def __repr__(self):
+        return (f"StrongPlusConfig(sims={self.NUM_SIMULATIONS}, "
+                f"res_blocks={self.NUM_RES_BLOCKS}, filters={self.NUM_FILTERS}, "
+                f"<100MB for Kaggle submission)")
+
+
 # 预设配置: 平衡版 (适中计算资源)
 class BalancedStrongConfig(AlphaZeroConfigStrong):
     """平衡强度配置"""
@@ -184,15 +233,16 @@ az_config_strong = AlphaZeroConfigStrong()
 
 def print_config_comparison():
     """打印配置对比"""
-    from agents.alphazero.az_config_optimized import az_config_optimized
+    # from agents.alphazero.az_config_optimized import az_config_optimized
     
     print("=" * 70)
     print("AlphaZero 配置对比")
     print("=" * 70)
     
     configs = {
-        "原优化版": az_config_optimized,
+        # "原优化版": az_config_optimized,
         "强化版 (推荐)": az_config_strong,
+        "强化+版 (可提交)": StrongPlusConfig(),
         "平衡强化版": BalancedStrongConfig(),
         "快速强化版": FastStrongConfig(),
         "极限强度版": UltraStrongConfig(),
@@ -254,6 +304,7 @@ if __name__ == "__main__":
     
     configs = {
         "强化版": az_config_strong,
+        "强化+版": StrongPlusConfig(),
         "平衡强化版": BalancedStrongConfig(),
         "快速强化版": FastStrongConfig(),
     }

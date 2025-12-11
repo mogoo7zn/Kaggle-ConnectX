@@ -1,5 +1,7 @@
 # 🔴 ConnectX Arena 🟡
 
+[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README_zh.md)
+
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-orange.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -18,10 +20,14 @@
     - [🌈 Rainbow DQN](#-rainbow-dqn)
     - [🤖 AlphaZero](#-alphazero)
   - [📦 Installation](#-installation)
+    - [Option 1: Automated Setup (Recommended)](#option-1-automated-setup-recommended)
+    - [Option 2: Manual Setup](#option-2-manual-setup)
+    - [Dependencies](#dependencies)
   - [⚡ Quick Start](#-quick-start)
     - [🏃 Run a Quick Experiment](#-run-a-quick-experiment)
     - [🏋️ Train Agents](#️-train-agents)
     - [⚔️ Evaluate](#️-evaluate)
+    - [🎮 Play](#-play)
   - [📚 Documentation](#-documentation)
   - [🏗️ Project Structure](#️-project-structure)
   - [📊 Performance](#-performance)
@@ -62,13 +68,61 @@ The goal is to compare these paradigms and achieve high performance in the Kaggl
 
 ## 📦 Installation
 
-Clone the repository and install the dependencies:
+### Option 1: Automated Setup (Recommended)
+
+We provide automated scripts to set up a virtual environment and install all dependencies:
+
+**Windows:**
 
 ```bash
 git clone https://github.com/mogoo7zn/connectX.git
 cd connectX
+scripts\setup_env.bat
+```
+
+**Linux/Mac:**
+
+```bash
+git clone https://github.com/mogoo7zn/connectX.git
+cd connectX
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+```
+
+The script will:
+
+- Create a Python virtual environment (`venv/`)
+- Install all required dependencies from `requirements.txt`
+- Set up the environment for immediate use
+
+After setup, activate the virtual environment:
+
+- **Windows**: `venv\Scripts\activate.bat`
+- **Linux/Mac**: `source venv/bin/activate`
+
+### Option 2: Manual Setup
+
+Clone the repository and install the dependencies manually:
+
+```bash
+git clone https://github.com/mogoo7zn/connectX.git
+cd connectX
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
+
+### Dependencies
+
+The project requires:
+
+- **Python 3.8+**
+- **PyTorch 2.0+** (for deep learning)
+- **NumPy** (for numerical computing)
+- **Matplotlib** (for visualization)
+- **Pygame** (for interactive gameplay)
+- **TensorBoard** (for training monitoring)
+- **tqdm** (for progress bars)
 
 ---
 
@@ -106,6 +160,21 @@ python -m evaluation.benchmark
 python -m evaluation.compare
 ```
 
+### 🎮 Play
+
+Play against the trained agent interactively:
+
+```bash
+python playground/play.py
+```
+
+### 📦 Deployment
+
+To build a standalone executable for Windows/Mac/Linux:
+
+1.  Go to the `deploy/` directory.
+2.  Follow the instructions in [deploy/README.md](deploy/README.md).
+
 ---
 
 ## 📚 Documentation
@@ -118,6 +187,13 @@ Detailed documentation is located in the `docs/` directory:
 | [**🏗️ Architecture**](docs/ARCHITECTURE.md)           | Technical design and implementation details.       |
 | [**🚀 Quick Start Guide**](docs/QUICKSTART.md)        | Extended guide for setup and usage.                |
 | [**📖 Detailed Docs**](docs/README.md)                | Comprehensive documentation index.                 |
+
+> **中文文档**:
+>
+> - [**📂 项目结构**](docs/PROJECT_STRUCTURE_zh.md)
+> - [**🏗️ 架构说明**](docs/ARCHITECTURE_zh.md)
+> - [**🚀 快速开始**](docs/QUICKSTART_zh.md)
+> - [**📖 详细文档**](docs/README_zh.md)
 
 ---
 
@@ -133,6 +209,10 @@ connectX/
 │   ├── 📂 rainbow/      # Rainbow DQN
 │   └── 📂 alphazero/    # AlphaZero
 ├── 📂 evaluation/       # Arena & Benchmarking tools
+├── 📂 playground/       # Interactive game interface (Pygame)
+├── 📂 scripts/          # Automation scripts
+│   ├── setup_env.bat    # Windows environment setup
+│   └── setup_env.sh     # Linux/Mac environment setup
 ├── 📂 tools/            # Visualization & Submission scripts
 ├── 📂 outputs/          # Logs, Checkpoints, Models, Plots
 ├── 📂 docs/             # Documentation

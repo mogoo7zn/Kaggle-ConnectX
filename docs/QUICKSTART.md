@@ -1,96 +1,149 @@
 # 🚀 Quick Start Guide
 
-快速上手 ConnectX 双智能体项目
+Quick start guide for ConnectX Dual-Agent Project
 
-## ⚡ 5分钟快速测试
+## ⚡ 5-Minute Quick Test
 
 ```bash
-# 1. 确保已安装依赖
-pip install torch numpy matplotlib
+# 1. Setup environment using automated script (Recommended)
+# Windows:
+scripts\setup_env.bat
 
-# 2. 快速测试（约5-10分钟）
+# Linux/Mac:
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+
+# Or install dependencies manually
+pip install -r requirements.txt
+
+# 2. Activate virtual environment (if using automated script)
+# Windows:
+venv\Scripts\activate.bat
+# Linux/Mac:
+source venv/bin/activate
+
+# 3. Quick test (approx. 5-10 minutes)
 python run_full_experiment.py --quick
 
-# 3. 查看结果
+# 4. View results
 ls experiments/comparison_*/comparison_report.html
 ```
 
-## 📖 详细步骤
+## 📖 Detailed Steps
 
-### 步骤1：环境准备
+### Step 1: Environment Preparation
+
+#### Method A: Automated Setup (Recommended)
+
+**Windows:**
 
 ```bash
-# 检查Python版本 (需要3.7+)
+# Run automated script
+scripts\setup_env.bat
+```
+
+**Linux/Mac:**
+
+```bash
+# Add execution permission and run
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+```
+
+The script will automatically:
+
+- Check Python version (requires 3.8+)
+- Create virtual environment `venv/`
+- Install all dependencies (including PyTorch, NumPy, Matplotlib, Pygame, TensorBoard, etc.)
+
+#### Method B: Manual Setup
+
+```bash
+# Check Python version (requires 3.8+)
 python --version
 
-# 安装核心依赖
-pip install torch numpy matplotlib tensorboard
+# Create virtual environment
+python -m venv venv
 
-# 可选：CUDA支持（GPU加速）
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate.bat
+# Linux/Mac:
+source venv/bin/activate
+
+# Install all dependencies
+pip install -r requirements.txt
+
+# Optional: CUDA support (GPU acceleration)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 ```
 
-### 步骤2：选择训练方案
+### Step 2: Choose Training Scheme
 
-#### 方案A：快速测试模式（推荐新手）
+#### Scheme A: Quick Test Mode (Recommended for Beginners)
+
 ```bash
-# 训练时间：约10-20分钟
-# 目的：验证代码正常工作
+# Training time: approx. 10-20 minutes
+# Purpose: Verify code works correctly
 python run_full_experiment.py --quick
 ```
 
-#### 方案B：仅训练Rainbow DQN
+#### Scheme B: Train Rainbow DQN Only
+
 ```bash
-# 训练时间：数小时到1天
+# Training time: hours to 1 day
 cd rainbow
 python train_rainbow.py
 ```
 
-#### 方案C：仅训练AlphaZero
+#### Scheme C: Train AlphaZero Only
+
 ```bash
-# 训练时间：1-2天
+# Training time: 1-2 days
 cd alphazero
 python train_alphazero.py
 ```
 
-#### 方案D：完整训练（需要GPU）
+#### Scheme D: Full Training (Requires GPU)
+
 ```bash
-# 训练时间：3-7天
+# Training time: 3-7 days
 python run_full_experiment.py
 ```
 
-### 步骤3：监控训练进度
+### Step 3: Monitor Training Progress
 
 ```bash
-# 在新终端中启动TensorBoard
+# Start TensorBoard in a new terminal
 tensorboard --logdir rainbow/logs/runs --logdir alphazero/logs/runs
 
-# 访问 http://localhost:6006
+# Visit http://localhost:6006
 ```
 
-关注以下指标：
-- **Loss**: 应该下降
-- **Win Rate**: 应该上升
-- **Q Values**: 应该趋于稳定
-- **ELO Rating**: 应该增长
+Watch the following metrics:
 
-### 步骤4：评估模型
+- **Loss**: Should decrease
+- **Win Rate**: Should increase
+- **Q Values**: Should stabilize
+- **ELO Rating**: Should grow
+
+### Step 4: Evaluate Models
 
 ```bash
-# 运行基准测试
+# Run benchmark
 python -m evaluation.benchmark
 
-# 或使用Python脚本
+# Or use Python script
 python << EOF
 from evaluation.benchmark import Benchmark
 from agents.rainbow.rainbow_agent import RainbowAgent
 from evaluation.arena import create_agent_wrapper
 
-# 加载训练好的模型
+# Load trained model
 agent = RainbowAgent()
 agent.load_model('rainbow/checkpoints/best_rainbow_*.pth')
 
-# 运行基准测试
+# Run benchmark
 benchmark = Benchmark()
 results = benchmark.run_benchmark(
     create_agent_wrapper(agent, 'rainbow'),
@@ -100,16 +153,16 @@ results = benchmark.run_benchmark(
 EOF
 ```
 
-### 步骤5：准备Kaggle提交
+### Step 5: Prepare Kaggle Submission
 
 ```bash
-# Rainbow DQN提交
+# Rainbow DQN Submission
 python tools/prepare_kaggle_submission.py \
     --agent rainbow \
     --model-path rainbow/checkpoints/best_rainbow_full_20251125_*.pth \
     --output submission/my_rainbow_agent.py
 
-# AlphaZero提交  
+# AlphaZero Submission
 python tools/prepare_kaggle_submission.py \
     --agent alphazero \
     --model-path alphazero/checkpoints/best_alphazero_20251125_*.pth \
@@ -117,13 +170,13 @@ python tools/prepare_kaggle_submission.py \
     --mcts-sims 100
 ```
 
-### 步骤6：本地测试提交文件
+### Step 6: Local Test Submission File
 
 ```python
-# 测试Rainbow agent
+# Test Rainbow agent
 from submission.my_rainbow_agent import agent
 
-# 模拟Kaggle observation
+# Mock Kaggle observation
 class Obs:
     def __init__(self):
         self.board = [0] * 42
@@ -134,21 +187,21 @@ action = agent(obs, None)
 print(f"Agent selected action: {action}")
 ```
 
-## 🎮 交互式对战（可选）
+## 🎮 Interactive Play (Optional)
 
 ```python
 from evaluation.arena import Arena
 from agents.rainbow.rainbow_agent import RainbowAgent
 from evaluation.benchmark import StandardOpponents
 
-# 加载你的agent
+# Load your agent
 my_agent = RainbowAgent()
 my_agent.load_model('rainbow/checkpoints/best_rainbow.pth')
 
-# 创建对战场
+# Create arena
 arena = Arena()
 
-# 对战测试
+# Play match
 results = arena.play_match(
     agent1_fn=lambda b,m: my_agent.select_action(b, m, epsilon=0),
     agent2_fn=StandardOpponents.negamax_depth_4,
@@ -159,80 +212,94 @@ results = arena.play_match(
 )
 ```
 
-## 📊 查看结果
+## 📊 View Results
 
-### 1. TensorBoard可视化
+### 1. TensorBoard Visualization
+
 ```bash
 tensorboard --logdir experiments/
 ```
 
-### 2. HTML报告
-打开浏览器访问:
+### 2. HTML Report
+
+Open in browser:
+
 ```
 experiments/comparison_*/comparison_report.html
 ```
 
-### 3. JSON数据
+### 3. JSON Data
+
 ```python
 import json
 
 with open('experiments/rainbow_benchmark.json') as f:
     data = json.load(f)
-    
+
 print(f"Overall win rate: {data['overall']['overall_win_rate']:.1%}")
 print(f"Estimated ELO: {data['overall']['estimated_elo']:.0f}")
 ```
 
-## 🔧 常见问题
+## 🔧 FAQ
 
-### Q: 训练很慢怎么办？
-**A**: 几个解决方案：
+### Q: Training is too slow?
+
+**A**: Several solutions:
+
 ```bash
-# 1. 使用快速模式
+# 1. Use quick mode
 python run_full_experiment.py --quick
 
-# 2. 减少训练轮数
-# 编辑 rainbow/rainbow_config.py
-SELF_PLAY_EPISODES = 1000  # 默认8000
+# 2. Reduce training episodes
+# Edit rainbow/rainbow_config.py
+SELF_PLAY_EPISODES = 1000  # Default 8000
 
-# 3. 减少MCTS模拟次数
-# 编辑 alphazero/az_config.py
-NUM_SIMULATIONS = 200  # 默认800
+# 3. Reduce MCTS simulations
+# Edit alphazero/az_config.py
+NUM_SIMULATIONS = 200  # Default 800
 ```
 
-### Q: 内存不足？
-**A**: 减小buffer大小：
+### Q: Out of memory?
+
+**A**: Reduce buffer size:
+
 ```python
 # rainbow/rainbow_config.py
-REPLAY_BUFFER_SIZE = 100000  # 默认500000
-BATCH_SIZE = 128  # 默认256
+REPLAY_BUFFER_SIZE = 100000  # Default 500000
+BATCH_SIZE = 128  # Default 256
 
 # alphazero/az_config.py
-REPLAY_BUFFER_SIZE = 200000  # 默认500000
-BATCH_SIZE = 256  # 默认512
+REPLAY_BUFFER_SIZE = 200000  # Default 500000
+BATCH_SIZE = 256  # Default 512
 ```
 
-### Q: 如何使用GPU？
-**A**: PyTorch会自动检测GPU：
+### Q: How to use GPU?
+
+**A**: PyTorch automatically detects GPU:
+
 ```python
 import torch
 print(f"CUDA available: {torch.cuda.is_available()}")
 print(f"Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
 ```
 
-### Q: 如何加载预训练模型？
-**A**: 
+### Q: How to load pre-trained model?
+
+**A**:
+
 ```python
 from agents.rainbow.rainbow_agent import RainbowAgent
 
 agent = RainbowAgent()
 agent.load_model('path/to/model.pth')
-# 或
+# Or
 agent.load_checkpoint('path/to/checkpoint.pth')
 ```
 
-### Q: 训练中断了如何恢复？
-**A**: 
+### Q: How to resume interrupted training?
+
+**A**:
+
 ```python
 # Rainbow
 from agents.rainbow.rainbow_agent import RainbowAgent
@@ -242,73 +309,77 @@ agent = RainbowAgent()
 agent.load_checkpoint('rainbow/checkpoints/rainbow_ep5000.pth')
 
 trainer = RainbowTrainer(agent)
-trainer.train(num_episodes=3000)  # 继续训练
+trainer.train(num_episodes=3000)  # Continue training
 
 # AlphaZero
 from alphazero.train_alphazero import AlphaZeroTrainer
 
 trainer = AlphaZeroTrainer()
 trainer.load_checkpoint('alphazero/checkpoints/alphazero_iter50.pth')
-trainer.train(max_iterations=50)  # 继续训练
+trainer.train(max_iterations=50)  # Continue training
 ```
 
-## 📝 下一步
+## 📝 Next Steps
 
-完成快速开始后，你可以：
+After completing the quick start, you can:
 
-1. **调优超参数**
-   - 修改 `rainbow/rainbow_config.py`
-   - 修改 `alphazero/az_config.py`
+1. **Tune Hyperparameters**
 
-2. **实验不同架构**
-   - 尝试更深的网络
-   - 调整ResBlock数量
-   - 测试Distributional RL
+   - Modify `rainbow/rainbow_config.py`
+   - Modify `alphazero/az_config.py`
 
-3. **添加新对手**
-   - 实现自定义策略
-   - 添加到benchmark suite
+2. **Experiment with Architectures**
 
-4. **优化性能**
-   - 使用模型量化
-   - 实现批处理推理
-   - 多GPU并行训练
+   - Try deeper networks
+   - Adjust ResBlock count
+   - Test Distributional RL
 
-5. **提交到Kaggle**
-   - 准备submission文件
-   - 本地测试
-   - 上传并评估
+3. **Add New Opponents**
 
-## 🎯 推荐学习路径
+   - Implement custom strategies
+   - Add to benchmark suite
 
-### 初学者
-1. 运行 `--quick` 模式理解流程
-2. 阅读 `DUAL_AGENT_README.md`
-3. 研究 `rainbow/rainbow_agent.py` 代码
-4. 尝试修改简单参数重新训练
+4. **Optimize Performance**
 
-### 中级用户
-1. 完整训练Rainbow DQN
-2. 分析TensorBoard日志
-3. 实现自定义评估指标
-4. 优化超参数
+   - Use model quantization
+   - Implement batched inference
+   - Multi-GPU parallel training
 
-### 高级用户
-1. 完整训练两个agent
-2. 实现分布式训练
-3. 添加新的RL算法
-4. 参与Kaggle竞赛
+5. **Submit to Kaggle**
+   - Prepare submission file
+   - Local test
+   - Upload and evaluate
 
-## 🆘 获取帮助
+## 🎯 Recommended Learning Path
 
-- 📖 完整文档: `DUAL_AGENT_README.md`
-- 💡 实现细节: `IMPLEMENTATION_SUMMARY.md`
-- 🐛 问题报告: GitHub Issues
-- 💬 讨论: GitHub Discussions
+### Beginner
+
+1. Run `--quick` mode to understand the flow
+2. Read `DUAL_AGENT_README.md`
+3. Study `rainbow/rainbow_agent.py` code
+4. Try modifying simple parameters and re-train
+
+### Intermediate
+
+1. Fully train Rainbow DQN
+2. Analyze TensorBoard logs
+3. Implement custom evaluation metrics
+4. Optimize hyperparameters
+
+### Advanced
+
+1. Fully train both agents
+2. Implement distributed training
+3. Add new RL algorithms
+4. Participate in Kaggle competition
+
+## 🆘 Get Help
+
+- 📖 Full Documentation: `DUAL_AGENT_README.md`
+- 💡 Implementation Details: `IMPLEMENTATION_SUMMARY.md`
+- 🐛 Issue Report: GitHub Issues
+- 💬 Discussion: GitHub Discussions
 
 ---
 
-**祝你训练愉快！🎉**
-
-如有问题随时查阅文档或提issue!
-
+Feel free to check docs or open issues if you have questions!

@@ -5,7 +5,7 @@ This document provides details about the ConnectX Dual-Agent Project, including 
 ## 🎯 Project Goals
 
 - **Compare Paradigms**: Contrast Value-Based (Rainbow DQN) vs Policy-Based (AlphaZero) RL.
-- **Superhuman Performance**: Train agents that surpass standard Minimax/Negamax baselines.
+- **Better Performance**: Train agents that surpass standard Minimax/Negamax baselines.
 - **Reusable Framework**: Create a modular system for future board game RL projects.
 
 ## 📁 Project Structure
@@ -43,9 +43,45 @@ connectX/
 
 ### 1. Installation
 
+#### Automated Setup (Recommended)
+
+We provide automated scripts for easy environment setup:
+
+**Windows:**
 ```bash
+scripts\setup_env.bat
+```
+
+**Linux/Mac:**
+```bash
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+```
+
+The scripts will automatically:
+- Create a Python virtual environment
+- Install all dependencies from `requirements.txt`
+- Set up the environment ready for use
+
+#### Manual Setup
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows: venv\Scripts\activate.bat
+# Linux/Mac: source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
+
+**Note**: The project requires Python 3.8+ and includes dependencies for:
+- Deep Learning (PyTorch)
+- Game Interface (Pygame)
+- Visualization (Matplotlib)
+- Monitoring (TensorBoard)
 
 ### 2. Run Full Experiment
 
