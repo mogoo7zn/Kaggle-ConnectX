@@ -25,10 +25,11 @@ The executable will be in `dist\ConnectX_Ultimate\ConnectX_Ultimate.exe`.
 
 ### macOS / Linux
 
-Open a terminal in this directory (`deploy/`) and run:
+Run the `package.sh` script in this directory:
 
 ```bash
-pyinstaller build.spec
+chmod +x package.sh
+./package.sh
 ```
 
 The executable will be in `dist/ConnectX_Ultimate/ConnectX_Ultimate`.

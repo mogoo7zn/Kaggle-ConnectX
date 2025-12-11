@@ -6,6 +6,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-orange.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Kaggle](https://img.shields.io/badge/Kaggle-ConnectX-20BEFF)](https://www.kaggle.com/c/connectx)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-yellow)](https://huggingface.co/mogoo7zn/Kaggle-ConnectX)
 
 > **Dual-Agent Reinforcement Learning Framework**: Implementing **Rainbow DQN** and **AlphaZero** to complete the game of Connect 4.
 
