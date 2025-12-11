@@ -13,12 +13,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from agents.alphazero.az_model import DualHeadNetwork
-from agents.alphazero.az_config import az_config
+from agents.alphazero.az_config_strong import az_config_strong as az_config
 
 
 def benchmark_original_mcts():
     """Benchmark original MCTS implementation."""
-    from agents.alphazero.mcts import MCTS
+    from agents.alphazero.mcts_optimized import MCTSWrapper as MCTS
     
     network = DualHeadNetwork()
     network.to(az_config.DEVICE)
@@ -160,11 +160,13 @@ def benchmark_win_checking():
 
 def benchmark_self_play():
     """Benchmark self-play game generation."""
-    from agents.alphazero.self_play import SelfPlayEngine
+    from agents.alphazero.self_play_optimized import SelfPlayEngine
     from agents.alphazero.self_play_optimized import SimpleSelfPlayEngine
-    from agents.alphazero.az_config_optimized import FastDebugConfig
+    from agents.alphazero.az_config_strong import az_config_strong as az_config
+    from copy import deepcopy
     
-    config = FastDebugConfig()
+    # Use a lightweight copy for quick benchmark
+    config = deepcopy(az_config)
     config.NUM_SIMULATIONS = 10
     
     network = DualHeadNetwork()

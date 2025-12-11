@@ -346,9 +346,9 @@ class FastBoard:
         return '\n'.join(lines)
 
 
-# Optional: Numba-accelerated functions
+# Optional: Numba-accelerated functions (if numba not installed, fall back gracefully)
 try:
-    from numba import jit, njit
+    from numba import jit, njit  # type: ignore
     
     @njit(cache=True)
     def fast_check_win_numba(bits: int) -> bool:
