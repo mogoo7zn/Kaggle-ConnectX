@@ -16,6 +16,7 @@ outputs/
 !outputs/.gitkeep
 dist/
 build/
+**/build_venv/
 
 # report 
 report/
@@ -52,3 +53,9 @@ Thumbs.db
 
 # final result
 # submission/main.py
+
+# github
+.github/
+
+# models
+models/
