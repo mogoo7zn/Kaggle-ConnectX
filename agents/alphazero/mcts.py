@@ -1,5 +1,5 @@
 """
-Optimized MCTS Implementation for AlphaZero
+MCTS Implementation for AlphaZero
 Reduced object allocation, better memory efficiency, and support for batched inference
 
 Key Optimizations:
@@ -18,13 +18,13 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from agents.alphazero.az_config_strong import az_config_strong as az_config
+from agents.alphazero.az_config import az_config
 from agents.alphazero.fast_board import FastBoard, ROWS, COLS
 
 
-class MCTSNodeOptimized:
+class MCTSNode:
     """
-    Optimized MCTS node using __slots__ for memory efficiency.
+    MCTS node using __slots__ for memory efficiency.
     
     Stores minimal state information and caches computed values.
     """
@@ -35,7 +35,7 @@ class MCTSNodeOptimized:
         '_valid_moves', '_is_terminal', '_terminal_winner'
     ]
     
-    def __init__(self, board: FastBoard, mark: int, parent: 'MCTSNodeOptimized' = None,
+    def __init__(self, board: FastBoard, mark: int, parent: 'MCTSNode' = None,
                  action: int = None, prior_prob: float = 0.0):
         """
         Initialize MCTS node.
@@ -52,7 +52,7 @@ class MCTSNodeOptimized:
         self.parent = parent
         self.action = action
         
-        self.children: Dict[int, MCTSNodeOptimized] = {}
+        self.children: Dict[int, MCTSNode] = {}
         
         # Statistics
         self.N = 0  # Visit count
@@ -104,7 +104,7 @@ class MCTSNodeOptimized:
         else:
             return -1.0
     
-    def select_child(self, c_puct: float) -> 'MCTSNodeOptimized':
+    def select_child(self, c_puct: float) -> 'MCTSNode':
         """
         Select best child using PUCT formula.
         
@@ -153,7 +153,7 @@ class MCTSNodeOptimized:
                 next_mark = 3 - self.mark
                 
                 # Create child
-                child = MCTSNodeOptimized(
+                child = MCTSNode(
                     board=next_board,
                     mark=next_mark,
                     parent=self,
@@ -184,9 +184,9 @@ class MCTSNodeOptimized:
             self.parent.remove_virtual_loss()
 
 
-class MCTSOptimized:
+class MCTS:
     """
-    Optimized MCTS with support for batched inference.
+    MCTS with support for batched inference.
     
     Features:
     - Single and batched inference modes
@@ -199,7 +199,7 @@ class MCTSOptimized:
                  batch_inference_fn: Callable[[List[np.ndarray]], List[Tuple[np.ndarray, float]]] = None,
                  config=None):
         """
-        Initialize optimized MCTS.
+        Initialize MCTS.
         
         Args:
             inference_fn: Function to evaluate single state
@@ -213,7 +213,7 @@ class MCTSOptimized:
     def search(self, board: FastBoard, mark: int,
                num_simulations: int = None,
                temperature: float = 1.0,
-               add_noise: bool = True) -> Tuple[np.ndarray, MCTSNodeOptimized]:
+               add_noise: bool = True) -> Tuple[np.ndarray, MCTSNode]:
         """
         Perform MCTS search.
         
@@ -231,7 +231,7 @@ class MCTSOptimized:
             num_simulations = self._get_adaptive_simulations(board)
         
         # Create root node
-        root = MCTSNodeOptimized(board.copy(), mark)
+        root = MCTSNode(board.copy(), mark)
         
         # Evaluate root with neural network
         state = board.encode_state(mark)
@@ -259,7 +259,7 @@ class MCTSOptimized:
     def search_batched(self, boards: List[FastBoard], marks: List[int],
                        num_simulations: int = None,
                        temperature: float = 1.0,
-                       add_noise: bool = True) -> List[Tuple[np.ndarray, MCTSNodeOptimized]]:
+                       add_noise: bool = True) -> List[Tuple[np.ndarray, MCTSNode]]:
         """
         Perform batched MCTS search for multiple positions.
         
@@ -280,7 +280,7 @@ class MCTSOptimized:
             return []
         
         # Create root nodes
-        roots = [MCTSNodeOptimized(board.copy(), mark) 
+        roots = [MCTSNode(board.copy(), mark) 
                  for board, mark in zip(boards, marks)]
         
         # Batch evaluate roots
@@ -311,7 +311,7 @@ class MCTSOptimized:
         
         return list(zip(policies, roots))
     
-    def _simulate(self, root: MCTSNodeOptimized):
+    def _simulate(self, root: MCTSNode):
         """Run one simulation from root to leaf."""
         node = root
         
@@ -338,7 +338,7 @@ class MCTSOptimized:
         # Backpropagation
         node.backpropagate(value)
     
-    def _simulate_with_virtual_loss(self, root: MCTSNodeOptimized) -> MCTSNodeOptimized:
+    def _simulate_with_virtual_loss(self, root: MCTSNode) -> MCTSNode:
         """
         Run simulation with virtual loss (for parallel MCTS).
         Returns the leaf node for later batch evaluation.
@@ -380,7 +380,7 @@ class MCTSOptimized:
         return ((1 - self.config.DIRICHLET_EPSILON) * policy +
                 self.config.DIRICHLET_EPSILON * noise)
     
-    def _compute_policy(self, root: MCTSNodeOptimized, temperature: float) -> np.ndarray:
+    def _compute_policy(self, root: MCTSNode, temperature: float) -> np.ndarray:
         """Compute policy distribution from visit counts."""
         policy = np.zeros(COLS)
         
@@ -458,8 +458,8 @@ class MCTSWrapper:
         self.config = config or az_config
         self.device = next(network.parameters()).device
         
-        # Create optimized MCTS
-        self.mcts = MCTSOptimized(
+        # Create MCTS
+        self.mcts = MCTS(
             inference_fn=self._inference,
             config=self.config
         )
@@ -479,7 +479,7 @@ class MCTSWrapper:
     
     def search(self, root_state: List[int], root_mark: int,
                num_simulations: int = None, temperature: float = 1.0,
-               add_noise: bool = True) -> Tuple[np.ndarray, MCTSNodeOptimized]:
+               add_noise: bool = True) -> Tuple[np.ndarray, MCTSNode]:
         """
         Perform MCTS search (compatible with old interface).
         
@@ -512,8 +512,8 @@ class MCTSWrapper:
 
 
 if __name__ == "__main__":
-    # Test optimized MCTS
-    print("Testing Optimized MCTS...")
+    # Test MCTS
+    print("Testing MCTS...")
     print("=" * 60)
     
     import time
@@ -524,8 +524,8 @@ if __name__ == "__main__":
         value = 0.0
         return policy, value
     
-    # Test MCTSOptimized
-    mcts = MCTSOptimized(inference_fn=dummy_inference)
+    # Test MCTS
+    mcts = MCTS(inference_fn=dummy_inference)
     
     board = FastBoard()
     board.make_move_inplace(3, 1)
@@ -564,5 +564,5 @@ if __name__ == "__main__":
     results = mcts.search_batched(boards, marks, num_simulations=50)
     print(f"Batched search: {len(results)} results")
     
-    print("\n✓ Optimized MCTS test passed!")
+    print("\n✓ MCTS test passed!")
 

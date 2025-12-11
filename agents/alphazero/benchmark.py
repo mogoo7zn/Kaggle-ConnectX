@@ -13,60 +13,21 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from agents.alphazero.az_model import DualHeadNetwork
-from agents.alphazero.az_config import az_config
+from agents.alphazero.az_config import az_config, FastConfig
+from agents.alphazero.batched_inference import SyncInferenceWrapper
+from agents.alphazero.mcts import MCTS
+from agents.alphazero.fast_board import FastBoard
 
 
-def benchmark_original_mcts():
-    """Benchmark original MCTS implementation."""
-    from agents.alphazero.mcts import MCTS
-    
-    network = DualHeadNetwork()
-    network.to(az_config.DEVICE)
-    network.eval()
-    
-    mcts = MCTS(network)
-    
-    # Initial board state
-    board = [0] * 42
-    mark = 1
-    
-    # Warmup
-    for _ in range(3):
-        mcts.search(board, mark, num_simulations=10)
-    
-    # Benchmark
-    num_searches = 10
-    num_sims = 50
-    
-    start = time.perf_counter()
-    for _ in range(num_searches):
-        policy, root = mcts.search(board, mark, num_simulations=num_sims)
-    elapsed = time.perf_counter() - start
-    
-    return {
-        'name': 'Original MCTS',
-        'total_time': elapsed,
-        'searches': num_searches,
-        'sims_per_search': num_sims,
-        'total_sims': num_searches * num_sims,
-        'sims_per_sec': num_searches * num_sims / elapsed
-    }
-
-
-def benchmark_optimized_mcts():
-    """Benchmark optimized MCTS implementation."""
-    from agents.alphazero.mcts_optimized import MCTSOptimized
-    from agents.alphazero.fast_board import FastBoard
-    from agents.alphazero.batched_inference import SyncInferenceWrapper
-    
+def benchmark_mcts():
+    """Benchmark current MCTS implementation."""
     network = DualHeadNetwork()
     network.to(az_config.DEVICE)
     network.eval()
     
     inference = SyncInferenceWrapper(network)
-    mcts = MCTSOptimized(inference_fn=inference.inference)
+    mcts = MCTS(inference_fn=inference.inference, config=az_config)
     
-    # Initial board state
     board = FastBoard()
     mark = 1
     
@@ -80,11 +41,11 @@ def benchmark_optimized_mcts():
     
     start = time.perf_counter()
     for _ in range(num_searches):
-        policy, root = mcts.search(board, mark, num_simulations=num_sims)
+        mcts.search(board, mark, num_simulations=num_sims)
     elapsed = time.perf_counter() - start
     
     return {
-        'name': 'Optimized MCTS',
+        'name': 'MCTS (current)',
         'total_time': elapsed,
         'searches': num_searches,
         'sims_per_search': num_sims,
@@ -159,41 +120,26 @@ def benchmark_win_checking():
 
 
 def benchmark_self_play():
-    """Benchmark self-play game generation."""
-    from agents.alphazero.self_play import SelfPlayEngine
-    from agents.alphazero.self_play_optimized import SimpleSelfPlayEngine
-    from agents.alphazero.az_config_optimized import FastDebugConfig
+    """Benchmark simple self-play game generation."""
+    from agents.alphazero.self_play import SimpleSelfPlay
     
-    config = FastDebugConfig()
-    config.NUM_SIMULATIONS = 10
+    config = FastConfig()
+    config.NUM_SIMULATIONS = 10  # speed up for benchmark
     
     network = DualHeadNetwork()
     network.to(az_config.DEVICE)
     network.eval()
     
-    results = {}
-    
-    # Original self-play (1 game)
-    original_engine = SelfPlayEngine(network, az_config)
+    engine = SimpleSelfPlay(network, config)
     
     start = time.perf_counter()
-    game_data = original_engine.play_game()
-    orig_time = time.perf_counter() - start
-    results['original_game_time'] = orig_time
-    results['original_moves'] = len(game_data)
+    game_data = engine.play_game()
+    elapsed = time.perf_counter() - start
     
-    # Optimized self-play (1 game)
-    optimized_engine = SimpleSelfPlayEngine(network, config)
-    
-    start = time.perf_counter()
-    game_data = optimized_engine.play_game()
-    opt_time = time.perf_counter() - start
-    results['optimized_game_time'] = opt_time
-    results['optimized_moves'] = len(game_data)
-    
-    results['speedup'] = orig_time / opt_time
-    
-    return results
+    return {
+        'game_time': elapsed,
+        'moves': len(game_data)
+    }
 
 
 def main():
@@ -218,30 +164,20 @@ def main():
     print(f"  FastBoard win check: {win_results['fast_win_check']:.3f}s")
     print(f"  Speedup:             {win_results['speedup']:.1f}x")
     
-    # MCTS comparison
+    # MCTS benchmark
     print("\n3. MCTS Benchmark")
     print("-" * 40)
     
-    orig_mcts = benchmark_original_mcts()
-    print(f"  {orig_mcts['name']}:")
-    print(f"    Time: {orig_mcts['total_time']:.3f}s for {orig_mcts['searches']} searches")
-    print(f"    Speed: {orig_mcts['sims_per_sec']:.0f} sims/sec")
+    mcts_stats = benchmark_mcts()
+    print(f"  {mcts_stats['name']}:")
+    print(f"    Time: {mcts_stats['total_time']:.3f}s for {mcts_stats['searches']} searches")
+    print(f"    Speed: {mcts_stats['sims_per_sec']:.0f} sims/sec")
     
-    opt_mcts = benchmark_optimized_mcts()
-    print(f"  {opt_mcts['name']}:")
-    print(f"    Time: {opt_mcts['total_time']:.3f}s for {opt_mcts['searches']} searches")
-    print(f"    Speed: {opt_mcts['sims_per_sec']:.0f} sims/sec")
-    
-    mcts_speedup = opt_mcts['sims_per_sec'] / orig_mcts['sims_per_sec']
-    print(f"  Speedup: {mcts_speedup:.1f}x")
-    
-    # Self-play comparison
-    print("\n4. Self-Play Benchmark (1 game)")
+    # Self-play
+    print("\n4. Self-Play Benchmark (1 game, simple engine)")
     print("-" * 40)
     selfplay_results = benchmark_self_play()
-    print(f"  Original: {selfplay_results['original_game_time']:.3f}s ({selfplay_results['original_moves']} moves)")
-    print(f"  Optimized: {selfplay_results['optimized_game_time']:.3f}s ({selfplay_results['optimized_moves']} moves)")
-    print(f"  Speedup: {selfplay_results['speedup']:.1f}x")
+    print(f"  SimpleSelfPlay: {selfplay_results['game_time']:.3f}s ({selfplay_results['moves']} moves)")
     
     # Summary
     print("\n" + "=" * 70)
@@ -249,12 +185,8 @@ def main():
     print("=" * 70)
     print(f"  Board Operations: {board_results['speedup']:.1f}x faster")
     print(f"  Win Checking:     {win_results['speedup']:.1f}x faster")
-    print(f"  MCTS:             {mcts_speedup:.1f}x faster")
-    print(f"  Self-Play:        {selfplay_results['speedup']:.1f}x faster")
-    
-    overall_estimate = (board_results['speedup'] + win_results['speedup'] + 
-                       mcts_speedup + selfplay_results['speedup']) / 4
-    print(f"\n  Estimated Overall Improvement: ~{overall_estimate:.1f}x")
+    print(f"  MCTS Sims/sec:    {mcts_stats['sims_per_sec']:.0f}")
+    print(f"  Self-Play (1g):   {selfplay_results['game_time']:.3f}s")
 
 
 if __name__ == "__main__":

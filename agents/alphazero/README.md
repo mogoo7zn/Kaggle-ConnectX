@@ -11,12 +11,13 @@ AlphaZero combines Monte Carlo Tree Search (MCTS) with deep neural networks thro
 
 ## Files
 
-- `az_config.py` - Configuration parameters
+- `az_config.py` - Configuration presets
+- `az_model.py` - ResNet-style policy-value networks
 - `mcts.py` - Monte Carlo Tree Search implementation
-- `az_model.py` - ResNet-style policy-value network
-- `az_agent.py` - AlphaZero agent combining MCTS + network
-- `self_play.py` - Self-play data generation engine
-- `train_alphazero.py` - Training loop
+- `fast_board.py` - Bitboard-based ConnectX board
+- `batched_inference.py` - Batched/Sync inference wrappers
+- `self_play.py` - Parallel and simple self-play engines
+- `train_alphazero.py` - Training loop using unified components
 
 ## Quick Start
 

@@ -1,19 +1,19 @@
 """
-强化版AlphaZero训练脚本
-使用增强配置训练更强的模型
+AlphaZero训练脚本（统一版）
+使用当前可用的配置与组件进行训练
 
 使用方法:
-    python train_strong.py --config strong      # 推荐 (平衡速度和质量)
-    python train_strong.py --config strong+     # 强化+ (比strong强，模型<100MB可提交)
-    python train_strong.py --config balanced    # 平衡版 (较快)
-    python train_strong.py --config fast        # 快速版 (最快)
-    python train_strong.py --config ultra       # 极限版 (最强, 需要好GPU, 模型>100MB)
+    python train_alphazero.py --config strong      # 推荐 (平衡速度和质量)
+    python train_alphazero.py --config strong+     # 强化+ (模型<100MB可提交)
+    python train_alphazero.py --config balanced    # 平衡版 (较快)
+    python train_alphazero.py --config fast        # 快速版 (最快)
+    python train_alphazero.py --config ultra       # 极限版 (需要更强GPU)
     
     # 从检查点继续训练
-    python train_strong.py --checkpoint path/to/checkpoint.pth
+    python train_alphazero.py --checkpoint path/to/checkpoint.pth
     
     # 指定迭代次数
-    python train_strong.py --iterations 200
+    python train_alphazero.py --iterations 200
 """
 
 import torch
@@ -35,17 +35,20 @@ from logging.handlers import RotatingFileHandler
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from agents.alphazero.az_config_strong import (
-    az_config_strong, 
-    BalancedStrongConfig, 
-    FastStrongConfig,
-    UltraStrongConfig,
-    StrongPlusConfig
+from agents.alphazero.az_config import (
+    az_config,
+    BalancedConfig,
+    FastConfig,
+    UltraConfig,
+    StrongPlusConfig,
 )
-from agents.alphazero.self_play_optimized import (
-    ParallelSelfPlayEngine, SimpleSelfPlayEngine
+from agents.alphazero.self_play import (
+    ParallelSelfPlay,
+    SimpleSelfPlay,
 )
 from agents.alphazero.fast_board import FastBoard
+from agents.alphazero.batched_inference import SyncInferenceWrapper
+from agents.alphazero.mcts import MCTS
 
 
 class StrongPolicyValueNetwork(nn.Module):
@@ -60,7 +63,7 @@ class StrongPolicyValueNetwork(nn.Module):
     
     def __init__(self, config=None):
         super().__init__()
-        self.config = config or az_config_strong
+        self.config = config or az_config
         
         num_filters = self.config.NUM_FILTERS
         num_res_blocks = self.config.NUM_RES_BLOCKS
@@ -164,7 +167,7 @@ class AlphaZeroStrongTrainer:
             config: 配置对象
             use_parallel: 是否使用并行自对弈
         """
-        self.config = config or az_config_strong
+        self.config = config or az_config
         self.device = self.config.DEVICE
         
         # 创建网络
@@ -188,9 +191,6 @@ class AlphaZeroStrongTrainer:
         )
         
         # 学习率调度器 (余弦退火 + 热身)
-        total_steps = self.config.MAX_ITERATIONS * self.config.TRAINING_EPOCHS
-        warmup_steps = min(10 * self.config.TRAINING_EPOCHS, total_steps // 10)
-        
         self.scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
             self.optimizer,
             T_0=50 * self.config.TRAINING_EPOCHS,  # 50个迭代一个周期
@@ -203,14 +203,14 @@ class AlphaZeroStrongTrainer:
         
         # 自对弈引擎
         if use_parallel:
-            self.self_play = ParallelSelfPlayEngine(
+            self.self_play = ParallelSelfPlay(
                 self.network,
                 num_parallel_games=self.config.NUM_PARALLEL_GAMES,
                 config=self.config,
                 use_batched_inference=self.config.USE_BATCHED_INFERENCE
             )
         else:
-            self.self_play = SimpleSelfPlayEngine(self.network, self.config)
+            self.self_play = SimpleSelfPlay(self.network, self.config)
         
         # 训练统计
         self.iteration = 0
@@ -316,7 +316,7 @@ class AlphaZeroStrongTrainer:
         selfplay_start = time.perf_counter()
         
         # 使用批量生成
-        if isinstance(self.self_play, ParallelSelfPlayEngine):
+        if isinstance(self.self_play, ParallelSelfPlay):
             num_examples = self.self_play.generate_games_batched(
                 num_games=self.config.NUM_SELFPLAY_GAMES,
                 batch_size=self.config.NUM_PARALLEL_GAMES
@@ -428,8 +428,9 @@ class AlphaZeroStrongTrainer:
                 with autocast('cuda'):
                     policy_logits, values = self.network(states)
                     
-                    # 损失计算
-                    policy_loss = F.cross_entropy(policy_logits, target_policies)
+                    # 分布交叉熵: target_policies 为概率分布
+                    log_probs = F.log_softmax(policy_logits, dim=1)
+                    policy_loss = -(target_policies * log_probs).sum(dim=1).mean()
                     value_loss = F.mse_loss(values, target_values)
                     total_loss = policy_loss + value_loss
                 
@@ -445,7 +446,8 @@ class AlphaZeroStrongTrainer:
             else:
                 policy_logits, values = self.network(states)
                 
-                policy_loss = F.cross_entropy(policy_logits, target_policies)
+                log_probs = F.log_softmax(policy_logits, dim=1)
+                policy_loss = -(target_policies * log_probs).sum(dim=1).mean()
                 value_loss = F.mse_loss(values, target_values)
                 total_loss = policy_loss + value_loss
                 
@@ -500,11 +502,8 @@ class AlphaZeroStrongTrainer:
     
     def _play_against_random(self, num_games: int) -> Tuple[int, int, int]:
         """与随机对手对弈"""
-        from agents.alphazero.mcts_optimized import MCTSOptimized
-        from agents.alphazero.batched_inference import SyncInferenceWrapper
-        
         inference = SyncInferenceWrapper(self.network)
-        mcts = MCTSOptimized(inference.inference, config=self.config)
+        mcts = MCTS(inference_fn=inference.inference, config=self.config)
         
         wins = losses = draws = 0
         
@@ -762,20 +761,20 @@ def main():
     
     # 选择配置
     if args.config == 'balanced':
-        config = BalancedStrongConfig()
-        print("使用配置: 平衡强化版")
+        config = BalancedConfig()
+        print("使用配置: 平衡版")
     elif args.config == 'fast':
-        config = FastStrongConfig()
-        print("使用配置: 快速强化版")
+        config = FastConfig()
+        print("使用配置: 快速版")
     elif args.config == 'ultra':
-        config = UltraStrongConfig()
-        print("使用配置: 极限强度版 (注意: 模型>100MB)")
+        config = UltraConfig()
+        print("使用配置: 极限强度版 (注意: 模型可能更大)")
     elif args.config == 'strong+':
         config = StrongPlusConfig()
         print("使用配置: 强化+版 (推荐用于Kaggle提交, 模型<100MB)")
     else:
-        config = az_config_strong
-        print("使用配置: 强化版 (推荐)")
+        config = az_config
+        print("使用配置: 标准版 (推荐)")
     
     print(f"  MCTS模拟: {config.NUM_SIMULATIONS}")
     print(f"  网络: {config.NUM_RES_BLOCKS} 残差块, {config.NUM_FILTERS} 滤波器")

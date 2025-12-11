@@ -1,8 +1,8 @@
 """
-Optimized Self-Play Engine for AlphaZero
+Self-Play Engine for AlphaZero
 Uses batched inference and parallel game execution for maximum throughput
 
-Key Optimizations:
+Key Features:
 1. Batched network inference across multiple games
 2. FastBoard for efficient game state operations  
 3. Parallel game execution with shared inference server
@@ -24,9 +24,9 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from agents.alphazero.az_config_strong import az_config_strong as az_config
+from agents.alphazero.az_config import az_config
 from agents.alphazero.fast_board import FastBoard, ROWS, COLS
-from agents.alphazero.mcts_optimized import MCTSOptimized, MCTSNodeOptimized
+from agents.alphazero.mcts import MCTS, MCTSNode
 from agents.alphazero.batched_inference import BatchedInferenceServer, SyncInferenceWrapper
 
 
@@ -41,14 +41,14 @@ class GameState:
     temperature_threshold: int
 
 
-class SelfPlayBufferOptimized:
+class SelfPlayBuffer:
     """
-    Optimized replay buffer using numpy arrays for storage.
+    Replay buffer using numpy arrays for storage.
     """
     
     def __init__(self, capacity: int = None):
         """
-        Initialize optimized buffer.
+        Initialize buffer.
         
         Args:
             capacity: Maximum buffer size
@@ -103,7 +103,7 @@ class SelfPlayBufferOptimized:
             self.buffer.clear()
 
 
-class ParallelSelfPlayEngine:
+class ParallelSelfPlay:
     """
     Parallel self-play engine using batched inference.
     
@@ -144,7 +144,7 @@ class ParallelSelfPlayEngine:
             self.inference_server = None
         
         # Buffer for training data
-        self.buffer = SelfPlayBufferOptimized(self.config.REPLAY_BUFFER_SIZE)
+        self.buffer = SelfPlayBuffer(self.config.REPLAY_BUFFER_SIZE)
         
         # Statistics
         self.games_completed = 0
@@ -185,7 +185,7 @@ class ParallelSelfPlayEngine:
         history = []
         
         # Create MCTS instance
-        mcts = MCTSOptimized(
+        mcts = MCTS(
             inference_fn=self.inference_fn,
             batch_inference_fn=self.batch_inference_fn,
             config=self.config
@@ -483,10 +483,9 @@ class ParallelSelfPlayEngine:
         return self.buffer.sample(batch_size)
 
 
-class SimpleSelfPlayEngine:
+class SimpleSelfPlay:
     """
     Simplified self-play engine for single-threaded operation.
-    Uses optimized components but without parallel complexity.
     """
     
     def __init__(self, network: torch.nn.Module, config=None):
@@ -504,14 +503,14 @@ class SimpleSelfPlayEngine:
         self.inference_wrapper = SyncInferenceWrapper(network)
         
         # Create MCTS
-        self.mcts = MCTSOptimized(
+        self.mcts = MCTS(
             inference_fn=self.inference_wrapper.inference,
             batch_inference_fn=self.inference_wrapper.inference_batch,
             config=self.config
         )
         
         # Buffer
-        self.buffer = SelfPlayBufferOptimized(self.config.REPLAY_BUFFER_SIZE)
+        self.buffer = SelfPlayBuffer(self.config.REPLAY_BUFFER_SIZE)
     
     def play_game(self, temperature_threshold: int = None,
                   add_noise: bool = True) -> List[Tuple[np.ndarray, np.ndarray, float]]:
@@ -599,26 +598,20 @@ class SimpleSelfPlayEngine:
                     aug_policy = np.flip(policy).copy()
                     self.buffer.push(aug_state, aug_policy, value)
                     examples_generated += 1
-            
-            if (game_num + 1) % 10 == 0:
-                elapsed = time.perf_counter() - start_time
-                print(f"  Generated {game_num + 1}/{num_games} games "
-                      f"({examples_generated} examples, {(game_num+1)/elapsed:.1f} games/s)")
         
         elapsed = time.perf_counter() - start_time
         print(f"Self-play complete: {examples_generated} examples in {elapsed:.1f}s")
-        print(f"Buffer size: {len(self.buffer)}")
         
         return examples_generated
     
     def get_training_batch(self, batch_size: int):
-        """Get training batch."""
+        """Get a batch of training data."""
         return self.buffer.sample(batch_size)
 
 
 if __name__ == "__main__":
-    # Test optimized self-play engine
-    print("Testing Optimized Self-Play Engine...")
+    # Test self-play engine
+    print("Testing Self-Play Engine...")
     print("=" * 60)
     
     from agents.alphazero.az_model import DualHeadNetwork
@@ -628,9 +621,9 @@ if __name__ == "__main__":
     network.to(az_config.DEVICE)
     network.eval()
     
-    # Test SimpleSelfPlayEngine
-    print("\n1. Testing SimpleSelfPlayEngine...")
-    engine = SimpleSelfPlayEngine(network)
+    # Test SimpleSelfPlay
+    print("\n1. Testing SimpleSelfPlay...")
+    engine = SimpleSelfPlay(network)
     
     game_data = engine.play_game()
     print(f"  Single game: {len(game_data)} moves")
@@ -638,9 +631,9 @@ if __name__ == "__main__":
     examples = engine.generate_self_play_data(num_games=5)
     print(f"  Generated {examples} examples from 5 games")
     
-    # Test ParallelSelfPlayEngine
-    print("\n2. Testing ParallelSelfPlayEngine...")
-    parallel_engine = ParallelSelfPlayEngine(
+    # Test ParallelSelfPlay
+    print("\n2. Testing ParallelSelfPlay...")
+    parallel_engine = ParallelSelfPlay(
         network,
         num_parallel_games=4,
         use_batched_inference=True
@@ -653,24 +646,5 @@ if __name__ == "__main__":
     
     parallel_engine.stop()
     
-    # Test batched game generation
-    print("\n3. Testing batched game generation...")
-    parallel_engine2 = ParallelSelfPlayEngine(
-        network,
-        num_parallel_games=8,
-        use_batched_inference=False  # Use sync for batched mode
-    )
-    
-    examples = parallel_engine2.generate_games_batched(num_games=10, batch_size=10)
-    print(f"  Generated {examples} examples from 10 batched games")
-    
-    # Sample training batch
-    if len(parallel_engine2.buffer) >= 32:
-        states, policies, values = parallel_engine2.get_training_batch(32)
-        print(f"\n4. Training batch:")
-        print(f"  States shape: {states.shape}")
-        print(f"  Policies shape: {policies.shape}")
-        print(f"  Values shape: {values.shape}")
-    
-    print("\n✓ Optimized self-play engine test passed!")
+    print("\n✓ Self-Play test passed!")
 
