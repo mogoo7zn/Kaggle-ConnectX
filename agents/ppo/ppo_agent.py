@@ -28,7 +28,7 @@ class RolloutBatch:
 class PPOAgent:
     def __init__(self):
         self.model = make_model()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=ppo_config.LR)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=ppo_config.LR, weight_decay=1e-4)
 
     # -------- acting -------- #
     def select_action(self, board: List[int], mark: int) -> Tuple[int, float, float]:

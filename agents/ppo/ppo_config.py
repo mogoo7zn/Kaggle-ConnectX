@@ -26,7 +26,7 @@ class PPOConfig:
     LR = 2.5e-4
     BATCH_SIZE = 256
     MINI_BATCHES = 4
-    PPO_EPOCHS = 4
+    PPO_EPOCHS = 2
     GAMMA = 0.99
     GAE_LAMBDA = 0.95
     CLIP_RANGE = 0.2
