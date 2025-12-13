@@ -56,20 +56,24 @@ class PPOAgent:
         values = []
         masks = []
 
-        # start new episode
+        # 轮流先手：跨 episode 在玩家1/2 间切换
+        start_with_agent = getattr(self, "_start_with_agent", True)
         board = [0] * (ppo_config.ROWS * ppo_config.COLUMNS)
-        current_mark = 1
+        agent_mark = 1 if start_with_agent else 2
+        current_mark = 1  # player 1 总是先落，若 agent_mark=2 则对手先手
 
         for _ in range(rollout_steps):
             # reset when done
             done, winner = is_terminal(board)
             if done:
                 board = [0] * (ppo_config.ROWS * ppo_config.COLUMNS)
+                start_with_agent = not start_with_agent
+                agent_mark = 1 if start_with_agent else 2
                 current_mark = 1
                 done = False
                 winner = None
 
-            if current_mark == 1:
+            if current_mark == agent_mark:
                 action, logp, val = self.select_action(board, current_mark)
             else:
                 action = opponent_fn(board, current_mark)
@@ -80,15 +84,15 @@ class PPOAgent:
             done, winner = is_terminal(next_board)
             reward = 0.0
             if done:
-                if winner == 1:
+                if winner == agent_mark:
                     reward = 1.0
-                elif winner == 2:
+                elif winner == 3 - agent_mark:
                     reward = -1.0
                 else:
                     reward = 0.0
 
             # record only from player 1 perspective
-            if current_mark == 1:
+            if current_mark == agent_mark:
                 states.append(encode_state(board, current_mark))
                 actions.append(action)
                 rewards.append(reward)
@@ -101,6 +105,8 @@ class PPOAgent:
             current_mark = 3 - current_mark
 
         batch = self._process_rollout(states, actions, rewards, dones, log_probs, values, masks)
+        # 持久化先手切换状态，下一次 generate_rollout 继续轮换
+        self._start_with_agent = start_with_agent
         return batch
 
     def _process_rollout(self, states, actions, rewards, dones, log_probs, values, masks):
