@@ -30,14 +30,18 @@ def train():
     for update in range(1, ppo_config.TOTAL_UPDATES + 1):
         opponent_fn = random.choice(opponents)
         batch = agent.generate_rollout(opponent_fn, ppo_config.ROLLOUT_STEPS)
-        loss = agent.update(batch)
+        metrics = agent.update(batch)
 
         # simple reward proxy: mean of returns
         reward_log.append(batch.returns.mean().item())
 
         if update % 10 == 0:
             avg_rew = np.mean(reward_log) if reward_log else 0.0
-            print(f"Update {update}/{ppo_config.TOTAL_UPDATES} | loss {loss:.3f} | avg_ret {avg_rew:.3f}")
+            if isinstance(metrics, dict):
+                loss_val = metrics.get("loss", metrics.get("total_loss", 0.0))
+            else:
+                loss_val = float(metrics)
+            print(f"Update {update}/{ppo_config.TOTAL_UPDATES} | loss {loss_val:.3f} | avg_ret {avg_rew:.3f}")
 
     # save model
     torch.save(agent.model.state_dict(), "ppo_model.pth")

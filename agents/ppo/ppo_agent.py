@@ -144,6 +144,12 @@ class PPOAgent:
     # -------- update -------- #
     def update(self, batch: RolloutBatch):
         total_loss = 0.0
+        total_policy = 0.0
+        total_value = 0.0
+        total_entropy = 0.0
+        total_kl = 0.0
+        total_clip = 0.0
+        steps = 0
         batch_size = batch.states.size(0)
         mini_batch_size = batch_size // ppo_config.MINI_BATCHES
 
@@ -152,14 +158,35 @@ class PPOAgent:
             for start in range(0, batch_size, mini_batch_size):
                 end = start + mini_batch_size
                 mb_idx = indices[start:end]
-                loss = self._ppo_loss(batch, mb_idx)
+                (
+                    loss,
+                    policy_loss,
+                    value_loss,
+                    entropy,
+                    approx_kl,
+                    clip_frac,
+                ) = self._ppo_loss(batch, mb_idx)
                 self.optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), ppo_config.MAX_GRAD_NORM)
                 self.optimizer.step()
                 total_loss += loss.item()
+                total_policy += policy_loss.item()
+                total_value += value_loss.item()
+                total_entropy += entropy.item()
+                total_kl += approx_kl.item()
+                total_clip += clip_frac.item()
+                steps += 1
 
-        return total_loss
+        # 返回平均指标，方便日志记录
+        return {
+            "loss": total_loss / max(1, steps),
+            "policy_loss": total_policy / max(1, steps),
+            "value_loss": total_value / max(1, steps),
+            "entropy": total_entropy / max(1, steps),
+            "approx_kl": total_kl / max(1, steps),
+            "clip_frac": total_clip / max(1, steps),
+        }
 
     def _ppo_loss(self, batch: RolloutBatch, idx):
         states = batch.states[idx]
@@ -177,7 +204,8 @@ class PPOAgent:
         log_probs = dist.log_prob(actions)
         entropy = dist.entropy().mean()
 
-        ratio = torch.exp(log_probs - old_log_probs)
+        log_ratio = log_probs - old_log_probs
+        ratio = torch.exp(log_ratio)
         surr1 = ratio * advantages
         surr2 = torch.clamp(ratio, 1.0 - ppo_config.CLIP_RANGE, 1.0 + ppo_config.CLIP_RANGE) * advantages
         policy_loss = -torch.min(surr1, surr2).mean()
@@ -185,7 +213,12 @@ class PPOAgent:
         value_loss = F.mse_loss(values.squeeze(-1), returns)
 
         loss = policy_loss + ppo_config.VF_COEF * value_loss - ppo_config.ENT_COEF * entropy
-        return loss
+
+        # 监控指标
+        approx_kl = 0.5 * (log_ratio ** 2).mean()
+        clip_frac = (torch.abs(ratio - 1.0) > ppo_config.CLIP_RANGE).float().mean()
+
+        return loss, policy_loss, value_loss, entropy, approx_kl, clip_frac
 
 
 # -------- utility for masks -------- #
