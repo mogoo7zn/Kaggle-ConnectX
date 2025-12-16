@@ -269,6 +269,11 @@ def create_agent_wrapper(agent_obj, agent_type: str) -> Callable:
             return mcts.get_best_action(board, mark)
         return policy
     
+    elif agent_type == 'ppo':
+        def policy(board, mark):
+            return agent_obj.select_action(board, mark)
+        return policy
+
     elif agent_type == 'function':
         return agent_obj
     
