@@ -65,6 +65,13 @@ The goal is to compare these paradigms and achieve high performance in the Kaggl
 - ✅ **Self-Play Training**: Generates training data by playing against itself.
 - ✅ **Symmetry Data Augmentation**: Exploits board symmetries to multiply dataset size.
 
+### 🧠 PPO (Kaggle Notebook)
+
+- ✅ **On-policy PPO**: Clip-variant PPO with masked logits for invalid moves.
+- ✅ **ResNet Policy-Value Net**: CNN with residual blocks (~1M params) tailored for the 6x7 board.
+- ✅ **Adaptive Opponent Pool**: Win-rate–aware sampling (negamax / DQN / AlphaZero / frozen PPO from HF).
+- ✅ **Kaggle GPU Workflow**: End-to-end training in `ipynb/ppo_frozen_opponents_v1.7.ipynb`, saving `.pth` for download/HF。
+
 ---
 
 ## 📦 Installation
@@ -147,6 +154,10 @@ python -m agents.rainbow.train_rainbow
 
 # Train AlphaZero
 python -m agents.alphazero.train_alphazero
+
+# Train PPO (Kaggle GPU notebook)
+# Open and run: ipynb/ppo_frozen_opponents_v1.7.ipynb
+# (adaptive opponent pool, ResNet policy-value net, saves .pth to download/HF)
 ```
 
 ### ⚔️ Evaluate
