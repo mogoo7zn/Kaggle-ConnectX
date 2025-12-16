@@ -109,6 +109,96 @@ class PPOAgent:
         self._start_with_agent = start_with_agent
         return batch
 
+    def generate_vectorized_rollout(self, opponent_fn, rollout_steps: int, num_envs: int = 32):
+        """
+        Generate rollout using vectorized environments for better GPU utilization.
+        """
+        from agents.base.vectorized_env import VectorizedConnectX
+
+        env = VectorizedConnectX(num_envs=num_envs, device=ppo_config.DEVICE)
+
+        # Storage for all steps across all environments
+        all_states = []
+        all_actions = []
+        all_rewards = []
+        all_dones = []
+        all_log_probs = []
+        all_values = []
+        all_masks = []
+
+        # Track agent marks for each environment (alternating first player)
+        agent_marks = torch.randint(1, 3, (num_envs,), device=ppo_config.DEVICE)  # 1 or 2
+
+        for step in range(rollout_steps):
+            # Get current states for all environments
+            current_states = env._get_states()
+
+            # Collect actions for each environment
+            batch_actions = []
+            batch_log_probs = []
+            batch_values = []
+
+            for env_idx in range(num_envs):
+                current_player = env.current_players[env_idx].item()
+                board_flat = env.boards[env_idx].flatten().cpu().numpy().tolist()
+                agent_mark = agent_marks[env_idx].item()
+
+                if current_player == agent_mark:
+                    # Agent's turn
+                    action, logp, val = self.select_action(board_flat, current_player)
+                else:
+                    # Opponent's turn
+                    action = opponent_fn(board_flat, current_player)
+                    logp, val = 0.0, 0.0
+
+                batch_actions.append(action)
+                batch_log_probs.append(logp)
+                batch_values.append(val)
+
+            # Convert to tensors
+            actions_tensor = torch.tensor(batch_actions, dtype=torch.long, device=ppo_config.DEVICE)
+
+            # Step all environments
+            next_states, rewards, dones, info = env.step(actions_tensor)
+
+            # Record data only for agent turns
+            for env_idx in range(num_envs):
+                current_player = env.current_players[env_idx].item()
+                agent_mark = agent_marks[env_idx].item()
+
+                if current_player == agent_mark:  # Just completed agent's turn
+                    # Get the state before the agent's move
+                    prev_state = current_states[env_idx:env_idx+1]
+
+                    all_states.append(prev_state.squeeze(0))
+                    all_actions.append(batch_actions[env_idx])
+                    all_rewards.append(rewards[env_idx].item())
+                    all_dones.append(dones[env_idx].item())
+                    all_log_probs.append(batch_log_probs[env_idx])
+                    all_values.append(batch_values[env_idx])
+                    all_masks.append(self._get_action_mask(board_flat))
+
+            # Reset done environments and switch agent marks for next episode
+            done_indices = dones.nonzero().flatten().tolist()
+            if done_indices:
+                env.reset(done_indices)
+                # Switch agent marks for reset environments
+                for idx in done_indices:
+                    agent_marks[idx] = 3 - agent_marks[idx]
+
+        # Process collected data
+        batch = self._process_rollout(all_states, all_actions, all_rewards, all_dones,
+                                    all_log_probs, all_values, all_masks)
+        return batch
+
+    def _get_action_mask(self, board: List[int]) -> np.ndarray:
+        """Get action mask for a board."""
+        mask = np.zeros(ppo_config.COLUMNS, dtype=np.float32)
+        for c in range(ppo_config.COLUMNS):
+            if board[c] == 0:  # top position empty
+                mask[c] = 1.0
+        return mask
+
     def _process_rollout(self, states, actions, rewards, dones, log_probs, values, masks):
         states = torch.tensor(np.array(states), dtype=torch.float32, device=ppo_config.DEVICE)
         actions = torch.tensor(actions, dtype=torch.long, device=ppo_config.DEVICE)
